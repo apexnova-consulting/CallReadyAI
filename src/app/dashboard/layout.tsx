@@ -1,11 +1,17 @@
+import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth"
 import Link from "next/link"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Temporarily disable auth check to fix redirect loop
+  const session = await auth()
+
+  if (!session) {
+    redirect("/login")
+  }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6" }}>
@@ -78,23 +84,25 @@ export default function DashboardLayout({
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
               <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                User
+                {session.user?.name || session.user?.email}
               </span>
-              <Link 
-                href="/login"
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#f3f4f6",
-                  color: "#374151",
-                  border: "none",
-                  borderRadius: "0.375rem",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                  textDecoration: "none"
-                }}
-              >
-                Sign Out
-              </Link>
+              <form action="/api/auth/signout" method="POST">
+                <button
+                  type="submit"
+                  style={{
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "#f3f4f6",
+                    color: "#374151",
+                    border: "none",
+                    borderRadius: "0.375rem",
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                    cursor: "pointer"
+                  }}
+                >
+                  Sign Out
+                </button>
+              </form>
             </div>
           </div>
         </div>
