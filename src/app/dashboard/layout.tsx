@@ -13,17 +13,15 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between">
-            <div className="flex">
-              <div className="flex flex-shrink-0 items-center">
-                <span className="text-xl font-bold">CallReady AI</span>
-              </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <nav style={{ backgroundColor: 'white', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 1rem' }}>
+          <div style={{ display: 'flex', height: '4rem', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>CallReady AI</span>
             </div>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-500">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                 {session.user?.email}
               </span>
             </div>
@@ -32,7 +30,9 @@ export default async function DashboardLayout({
       </nav>
 
       <main>
-        <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">{children}</div>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '1.5rem 1rem' }}>
+          {children}
+        </div>
       </main>
     </div>
   )
