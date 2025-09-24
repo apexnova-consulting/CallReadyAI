@@ -41,21 +41,7 @@ export default async function RegisterPage() {
           </p>
         </div>
 
-        <form action={async (formData) => {
-          "use server"
-          const response = await fetch("/api/auth/register", {
-            method: "POST",
-            body: formData,
-          })
-          
-          if (response.ok) {
-            // Redirect to login page after successful registration
-            window.location.href = "/login"
-          } else {
-            const error = await response.json()
-            alert(error.error || "Registration failed")
-          }
-        }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form action="/api/auth/register" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div>
             <label htmlFor="name" style={{ 
               display: 'block', 

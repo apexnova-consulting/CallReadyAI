@@ -1,22 +1,10 @@
 import Link from "next/link"
-import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
 
-export default async function DashboardPage() {
-  const session = await auth()
-
-  const briefs = await db.brief.findMany({
-    where: { userId: session?.user?.id },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  })
-
-  const subscription = await db.subscription.findUnique({
-    where: { userId: session?.user?.id },
-  })
-
-  const briefsUsed = briefs.length
-  const briefsLimit = subscription?.briefsLimit || 5
+export default function DashboardPage() {
+  // Temporarily disable auth and database calls to fix redirect loop
+  const briefsUsed = 0
+  const briefsLimit = 5
+  const briefs: any[] = []
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
@@ -32,7 +20,7 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
           <p style={{ color: "#6b7280" }}>
-            Welcome back, {session?.user?.name || session?.user?.email}
+            Welcome back, User!
           </p>
         </div>
         <Link 
