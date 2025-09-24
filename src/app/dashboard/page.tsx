@@ -77,7 +77,7 @@ export default function DashboardPage() {
           textAlign: "center"
         }}>
           <h3 style={{ fontSize: "2rem", fontWeight: "bold", color: "#667eea" }}>
-            {subscription?.plan || "Free"}
+            Free
           </h3>
           <p style={{ color: "#6b7280" }}>Current Plan</p>
         </div>
