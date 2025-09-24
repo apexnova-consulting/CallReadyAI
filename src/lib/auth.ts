@@ -5,24 +5,24 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { db } from "./db"
 import bcrypt from "bcryptjs"
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
-  adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
-  providers: [
+// Create providers array conditionally
+const providers = []
+
+// Add Google provider if credentials are available
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    Credentials({
-      async authorize(credentials) {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  )
+}
+
+// Always add credentials provider
+providers.push(
+  Credentials({
+    async authorize(credentials) {
+      try {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -46,59 +46,86 @@ export const {
           email: user.email,
           name: user.name,
         }
-      },
-    }),
-  ],
+      } catch (error) {
+        console.error("Auth error:", error)
+        return null
+      }
+    },
+  })
+)
+
+export const {
+  handlers: { GET, POST },
+  auth,
+  signIn,
+  signOut,
+} = NextAuth({
+  adapter: PrismaAdapter(db),
+  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+  },
+  providers,
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id
-        token.email = user.email
-        token.name = user.name
-      }
-      
-      // Handle Google OAuth
-      if (account?.provider === "google") {
-        const existingUser = await db.user.findUnique({
-          where: { email: token.email! },
-        })
-        
-        if (!existingUser) {
-          // Create user if doesn't exist
-          const newUser = await db.user.create({
-            data: {
-              email: token.email!,
-              name: token.name!,
-              image: token.picture,
-            },
-          })
-          
-          // Create default subscription
-          await db.subscription.create({
-            data: {
-              userId: newUser.id,
-              plan: "free",
-              status: "active",
-              briefsLimit: 5,
-              briefsUsed: 0,
-            },
-          })
-          
-          token.id = newUser.id
-        } else {
-          token.id = existingUser.id
+      try {
+        if (user) {
+          token.id = user.id
+          token.email = user.email
+          token.name = user.name
         }
+        
+        // Handle Google OAuth
+        if (account?.provider === "google") {
+          const existingUser = await db.user.findUnique({
+            where: { email: token.email! },
+          })
+          
+          if (!existingUser) {
+            // Create user if doesn't exist
+            const newUser = await db.user.create({
+              data: {
+                email: token.email!,
+                name: token.name!,
+                image: token.picture,
+              },
+            })
+            
+            // Create default subscription
+            await db.subscription.create({
+              data: {
+                userId: newUser.id,
+                plan: "free",
+                status: "active",
+                briefsLimit: 5,
+                briefsUsed: 0,
+              },
+            })
+            
+            token.id = newUser.id
+          } else {
+            token.id = existingUser.id
+          }
+        }
+        
+        return token
+      } catch (error) {
+        console.error("JWT callback error:", error)
+        return token
       }
-      
-      return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.email = token.email as string
-        session.user.name = token.name as string
+      try {
+        if (token) {
+          session.user.id = token.id as string
+          session.user.email = token.email as string
+          session.user.name = token.name as string
+        }
+        return session
+      } catch (error) {
+        console.error("Session callback error:", error)
+        return session
       }
-      return session
     },
   },
 })
