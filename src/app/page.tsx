@@ -182,6 +182,42 @@ export default async function Home() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer style={{ 
+        padding: "2.5rem 1rem", 
+        width: "100%", 
+        textAlign: "center", 
+        color: "rgba(255, 255, 255, 0.7)", 
+        fontSize: "0.875rem",
+        backgroundColor: "rgba(0, 0, 0, 0.1)"
+      }}>
+        <p style={{ marginBottom: "0.5rem" }}>
+          &copy; {new Date().getFullYear()} CallReady AI. All rights reserved.
+        </p>
+        <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+          <Link 
+            href="/privacy" 
+            style={{ 
+              color: "rgba(255, 255, 255, 0.7)", 
+              textDecoration: "none",
+              transition: "color 0.2s"
+            }}
+          >
+            Privacy Policy
+          </Link>
+          <Link 
+            href="/terms" 
+            style={{ 
+              color: "rgba(255, 255, 255, 0.7)", 
+              textDecoration: "none",
+              transition: "color 0.2s"
+            }}
+          >
+            Terms of Service
+          </Link>
+        </div>
+      </footer>
     </div>
   )
 }

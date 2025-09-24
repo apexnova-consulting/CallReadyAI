@@ -14,6 +14,7 @@ model User {
   emailVerified DateTime?
   password      String?
   image         String?
+  referralCode  String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -21,8 +22,11 @@ model User {
   sessions      Session[]
   subscription  Subscription?
   briefs        Brief[]
+  referralsMade Referral[] @relation("Referrer")
+  referralsReceived Referral[] @relation("Referee")
 
   @@index([email])
+  @@index([referralCode])
 }
 
 model Account {
@@ -107,4 +111,22 @@ model Brief {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  referrerId  String
+  refereeId   String
+  code        String   @unique
+  status      String   // 'pending' | 'completed'
+  rewardGiven Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, refereeId])
+  @@index([code])
+  @@index([status])
 }

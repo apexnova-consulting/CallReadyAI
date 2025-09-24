@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import PDFDocument from "pdfkit"
 
 export const runtime = "nodejs"
 
@@ -22,134 +23,85 @@ export async function GET(
       return NextResponse.json({ error: "Brief not found" }, { status: 404 })
     }
 
-    // Simple HTML to PDF conversion
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>CallReady AI - Sales Call Brief</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 40px 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 40px;
-              padding-bottom: 20px;
-              border-bottom: 2px solid #667eea;
-            }
-            .header h1 {
-              color: #667eea;
-              font-size: 28px;
-              margin: 0;
-            }
-            .prospect-info {
-              background: #f8fafc;
-              padding: 20px;
-              border-radius: 8px;
-              margin-bottom: 30px;
-            }
-            .prospect-info h2 {
-              margin: 0 0 10px 0;
-              color: #374151;
-            }
-            .prospect-info p {
-              margin: 5px 0;
-              color: #6b7280;
-            }
-            .section {
-              margin-bottom: 30px;
-            }
-            .section h3 {
-              color: #374151;
-              font-size: 18px;
-              margin-bottom: 15px;
-              padding-bottom: 5px;
-              border-bottom: 1px solid #e5e7eb;
-            }
-            .section p {
-              color: #4b5563;
-              margin: 0;
-              white-space: pre-wrap;
-            }
-            .footer {
-              margin-top: 40px;
-              padding-top: 20px;
-              border-top: 1px solid #e5e7eb;
-              text-align: center;
-              color: #9ca3af;
-              font-size: 14px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>CallReady AI</h1>
-            <p>Sales Call Brief</p>
-          </div>
+    // Create PDF document
+    const doc = new PDFDocument({ margin: 50 })
+    const buffers: Buffer[] = []
+    
+    doc.on('data', buffers.push.bind(buffers))
+    
+    // Header
+    doc.fontSize(24)
+       .fillColor('#667eea')
+       .text('CallReady AI', { align: 'center' })
+    
+    doc.fontSize(16)
+       .fillColor('#6b7280')
+       .text('Sales Call Brief', { align: 'center' })
+       .moveDown(2)
 
-          <div class="prospect-info">
-            <h2>${brief.prospectName} - ${brief.companyName}</h2>
-            <p><strong>Role:</strong> ${brief.role}</p>
-            ${brief.meetingLink ? `<p><strong>Meeting Link:</strong> ${brief.meetingLink}</p>` : ""}
-            <p><strong>Generated:</strong> ${new Date(brief.createdAt).toLocaleDateString()}</p>
-          </div>
+    // Prospect Info
+    doc.fontSize(18)
+       .fillColor('#374151')
+       .text(`${brief.prospectName} - ${brief.companyName}`)
+    
+    doc.fontSize(12)
+       .fillColor('#6b7280')
+       .text(`Role: ${brief.role}`)
+    
+    if (brief.meetingLink) {
+      doc.text(`Meeting Link: ${brief.meetingLink}`)
+    }
+    
+    doc.text(`Generated: ${new Date(brief.createdAt).toLocaleDateString()}`)
+       .moveDown(1)
 
-          <div class="section">
-            <h3>Prospect Overview</h3>
-            <p>${brief.overview}</p>
-          </div>
+    // Helper function to add sections
+    const addSection = (title: string, content: string) => {
+      doc.fontSize(14)
+         .fillColor('#374151')
+         .text(title, { underline: true })
+         .moveDown(0.5)
+      
+      doc.fontSize(11)
+         .fillColor('#4b5563')
+         .text(content, { 
+           lineGap: 3,
+           paragraphGap: 5
+         })
+         .moveDown(1)
+    }
 
-          <div class="section">
-            <h3>Company Context</h3>
-            <p>${brief.context}</p>
-          </div>
+    // Add all sections
+    addSection('Prospect Overview', brief.overview)
+    addSection('Company Context', brief.context)
+    addSection('Potential Pain Points', brief.painPoints)
+    addSection('Key Talking Points', brief.talkingPoints)
+    addSection('Questions to Ask', brief.questions)
+    addSection('Competitive Insights', brief.competitive)
 
-          <div class="section">
-            <h3>Potential Pain Points</h3>
-            <p>${brief.painPoints}</p>
-          </div>
+    if (brief.notes) {
+      addSection('Additional Notes', brief.notes)
+    }
 
-          <div class="section">
-            <h3>Key Talking Points</h3>
-            <p>${brief.talkingPoints}</p>
-          </div>
+    // Footer
+    doc.fontSize(10)
+       .fillColor('#9ca3af')
+       .text(`Generated by CallReady AI on ${new Date().toLocaleDateString()}`, 
+             50, doc.page.height - 50, { align: 'center' })
 
-          <div class="section">
-            <h3>Questions to Ask</h3>
-            <p>${brief.questions}</p>
-          </div>
+    doc.end()
 
-          <div class="section">
-            <h3>Competitive Insights</h3>
-            <p>${brief.competitive}</p>
-          </div>
+    // Wait for PDF to be generated
+    const pdfBuffer = await new Promise<Buffer>((resolve) => {
+      doc.on('end', () => {
+        resolve(Buffer.concat(buffers))
+      })
+    })
 
-          ${brief.notes ? `
-          <div class="section">
-            <h3>Additional Notes</h3>
-            <p>${brief.notes}</p>
-          </div>
-          ` : ""}
-
-          <div class="footer">
-            <p>Generated by CallReady AI on ${new Date().toLocaleDateString()}</p>
-          </div>
-        </body>
-      </html>
-    `
-
-    // Return HTML for now - in production, you'd use a PDF library
-    return new NextResponse(html, {
+    return new NextResponse(pdfBuffer, {
       headers: {
-        "Content-Type": "text/html",
-        "Content-Disposition": `attachment; filename="${brief.prospectName}-${brief.companyName}-Brief.html"`,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${brief.prospectName}-${brief.companyName}-Brief.pdf"`,
       },
     })
   } catch (error) {
