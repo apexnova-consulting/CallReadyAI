@@ -10,12 +10,20 @@ const registerSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { name, email, password } = registerSchema.parse(body)
+    const formData = await req.formData()
+    const name = formData.get("name") as string
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
+    const { name: validatedName, email: validatedEmail, password: validatedPassword } = registerSchema.parse({
+      name,
+      email,
+      password,
+    })
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({
-      where: { email },
+      where: { email: validatedEmail },
     })
 
     if (existingUser) {
@@ -28,9 +36,9 @@ export async function POST(req: Request) {
     // Create user
     const user = await db.user.create({
       data: {
-        name,
-        email,
-        password, // In production, hash this password
+        name: validatedName,
+        email: validatedEmail,
+        password: validatedPassword, // In production, hash this password
       },
     })
 
@@ -38,15 +46,14 @@ export async function POST(req: Request) {
     await db.subscription.create({
       data: {
         userId: user.id,
+        plan: "free",
+        status: "active",
         briefsLimit: 5,
         briefsUsed: 0,
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      message: "User created successfully",
-    })
+    return NextResponse.redirect(new URL("/login", req.url))
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -1,74 +1,12 @@
 import Link from "next/link"
 import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
 
 export default async function Home() {
   const session = await auth()
 
   if (session) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        minHeight: '100vh', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        padding: '24px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-      }}>
-        <div style={{ 
-          backgroundColor: 'white', 
-          padding: '3rem', 
-          borderRadius: '1rem', 
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-          maxWidth: '500px',
-          width: '100%',
-          textAlign: 'center'
-        }}>
-          <h1 style={{ 
-            fontSize: '2.5rem', 
-            fontWeight: 'bold', 
-            marginBottom: '1rem',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            CallReady AI
-          </h1>
-          <p style={{ fontSize: '1.25rem', marginBottom: '2rem', color: '#6b7280' }}>
-            Welcome back, {session.user?.name || session.user?.email}!
-          </p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <Link 
-              href="/dashboard"
-              style={{ 
-                padding: '0.75rem 1.5rem', 
-                backgroundColor: '#667eea', 
-                color: 'white', 
-                textDecoration: 'none', 
-                borderRadius: '0.5rem',
-                fontWeight: '600'
-              }}
-            >
-              Go to Dashboard
-            </Link>
-            <Link 
-              href="/dashboard/new"
-              style={{ 
-                padding: '0.75rem 1.5rem', 
-                backgroundColor: 'transparent', 
-                color: '#667eea', 
-                textDecoration: 'none', 
-                borderRadius: '0.5rem',
-                border: '2px solid #667eea',
-                fontWeight: '600'
-              }}
-            >
-              New Brief
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
+    redirect("/dashboard")
   }
 
   return (
