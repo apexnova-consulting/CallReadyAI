@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { db } from "@/lib/db"
-import bcrypt from "bcryptjs"
+import { createUser, getUser } from "@/lib/auth"
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -11,7 +10,7 @@ const registerSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    console.log("Registration attempt started")
+    console.log("Simple registration attempt started")
     
     const formData = await req.formData()
     const name = formData.get("name") as string
@@ -28,15 +27,8 @@ export async function POST(req: Request) {
 
     console.log("Data validated successfully")
 
-    // Test database connection first
-    await db.$connect()
-    console.log("Database connected")
-
     // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: validatedEmail },
-    })
-
+    const existingUser = getUser(validatedEmail)
     if (existingUser) {
       console.log("User already exists")
       return NextResponse.json(
@@ -47,31 +39,9 @@ export async function POST(req: Request) {
 
     console.log("User doesn't exist, proceeding with creation")
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(validatedPassword, 12)
-    console.log("Password hashed")
-
-    // Create user
-    const user = await db.user.create({
-      data: {
-        name: validatedName,
-        email: validatedEmail,
-        password: hashedPassword,
-      },
-    })
+    // Create user in memory store
+    const user = await createUser(validatedEmail, validatedPassword, validatedName)
     console.log("User created:", user.id)
-
-    // Create default subscription
-    await db.subscription.create({
-      data: {
-        userId: user.id,
-        plan: "free",
-        status: "active",
-        briefsLimit: 5,
-        briefsUsed: 0,
-      },
-    })
-    console.log("Subscription created")
 
     return NextResponse.redirect(new URL("/login", req.url))
   } catch (error) {
@@ -87,12 +57,9 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { 
         error: "Internal server error", 
-        message: error instanceof Error ? error.message : "Unknown error",
-        stack: error instanceof Error ? error.stack : undefined
+        message: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }
     )
-  } finally {
-    await db.$disconnect()
   }
 }
