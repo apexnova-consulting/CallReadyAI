@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import OpenAI from "openai"
 import { getSession } from "@/lib/auth"
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 const briefSchema = z.object({
   prospectName: z.string().min(1),
@@ -90,42 +85,57 @@ Role: ${role}
 ${meetingLink ? `Meeting Link: ${meetingLink}` : ""}
 ${notes ? `Additional Notes: ${notes}` : ""}`
 
-    console.log("Calling OpenAI API...")
+    console.log("Calling Google Gemini API...")
     
-    // Check if OpenAI API key is available
-    if (!process.env.OPENAI_API_KEY) {
-      console.log("OpenAI API key not found")
+    // Check if Gemini API key is available
+    if (!process.env.GEMINI_API_KEY) {
+      console.log("Gemini API key not found")
       return NextResponse.json(
         { error: "AI service not configured. Please contact support." },
         { status: 500 }
       )
     }
 
-    let completion
+    let response
     try {
-      completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1200,
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `${systemPrompt}\n\n${userPrompt}`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1200,
+          }
+        })
       })
-    } catch (openaiError) {
-      console.error("OpenAI API error:", openaiError)
+
+      if (!geminiResponse.ok) {
+        throw new Error(`Gemini API error: ${geminiResponse.status}`)
+      }
+
+      const geminiData = await geminiResponse.json()
+      response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
+      
+    } catch (geminiError) {
+      console.error("Gemini API error:", geminiError)
       return NextResponse.json(
         { error: "AI service temporarily unavailable. Please try again in a few moments." },
         { status: 503 }
       )
     }
 
-    console.log("OpenAI response received")
-    const response = completion.choices[0]?.message?.content || ""
+    console.log("Gemini response received")
     console.log("Response length:", response.length)
 
     if (!response || response.trim().length === 0) {
-      console.log("Empty response from OpenAI, using fallback template")
+      console.log("Empty response from Gemini, using fallback template")
       
       // Fallback template if OpenAI fails
       const fallbackResponse = `1. Prospect Overview
