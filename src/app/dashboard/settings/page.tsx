@@ -118,63 +118,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6" }}>
-      {/* Navigation */}
-      <nav style={{ 
-        backgroundColor: "white", 
-        boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
-        borderBottom: "1px solid #e5e7eb"
-      }}>
-        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 1rem" }}>
-          <div style={{ display: "flex", height: "4rem", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
-              <a 
-                href="/dashboard"
-                style={{ 
-                  fontSize: "1.25rem", 
-                  fontWeight: "bold", 
-                  color: "#667eea",
-                  textDecoration: "none"
-                }}
-              >
-                CallReady AI
-              </a>
-              <div style={{ display: "flex", gap: "1.5rem" }}>
-                <a 
-                  href="/dashboard"
-                  style={{ 
-                    color: "#6b7280", 
-                    textDecoration: "none",
-                    fontSize: "0.875rem",
-                    fontWeight: "500"
-                  }}
-                >
-                  Dashboard
-                </a>
-                <a 
-                  href="/dashboard/settings"
-                  style={{ 
-                    color: "#667eea", 
-                    textDecoration: "none",
-                    fontSize: "0.875rem",
-                    fontWeight: "500"
-                  }}
-                >
-                  Settings
-                </a>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                {userData.name}
-              </span>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <main>
-        <div style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem 1rem" }}>
+    <div>
           {/* Header */}
           <div style={{ marginBottom: "2rem" }}>
             <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
@@ -452,8 +396,6 @@ export default function SettingsPage() {
               {isLoading ? "Deleting..." : "Delete Account"}
             </button>
           </div>
-        </div>
-      </main>
     </div>
   )
 }

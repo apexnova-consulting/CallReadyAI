@@ -1,12 +1,17 @@
 import Link from "next/link"
+import { getSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Temporarily disable auth check for testing
-  const session = { user: { name: "Test User", email: "test@example.com" } }
+  const session = await getSession()
+  
+  if (!session) {
+    redirect("/login")
+  }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6" }}>
@@ -52,6 +57,17 @@ export default function DashboardLayout({
                   }}
                 >
                   New Brief
+                </Link>
+                <Link 
+                  href="/dashboard/templates"
+                  style={{ 
+                    color: "#6b7280", 
+                    textDecoration: "none",
+                    fontSize: "0.875rem",
+                    fontWeight: "500"
+                  }}
+                >
+                  Templates
                 </Link>
                 <Link 
                   href="/dashboard/billing"

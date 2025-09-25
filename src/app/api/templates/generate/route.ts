@@ -1,0 +1,124 @@
+import { NextResponse } from "next/server"
+import { z } from "zod"
+import OpenAI from "openai"
+import { getSession } from "@/lib/auth"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
+const templateSchema = z.object({
+  methodology: z.string().min(1),
+  callType: z.string().min(1),
+  industry: z.string().min(1),
+  templateType: z.string().min(1),
+})
+
+// Rate limiting map
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const userLimit = rateLimitMap.get(userId)
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    rateLimitMap.set(userId, { count: 1, resetTime: now + 60000 }) // 1 minute window
+    return true
+  }
+  
+  if (userLimit.count >= 5) { // 5 template requests per minute
+    return false
+  }
+  
+  userLimit.count++
+  return true
+}
+
+export async function POST(req: Request) {
+  try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Rate limiting
+    if (!checkRateLimit(session.user.id)) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Please wait before generating another template." },
+        { status: 429 }
+      )
+    }
+
+    const body = await req.json()
+    const { methodology, callType, industry, templateType } = templateSchema.parse(body)
+
+    // Create comprehensive system prompt for template generation
+    const systemPrompt = `You are CallReady AI, an expert sales strategist and template creator. Generate a professional, actionable ${templateType} for ${callType} using the ${methodology} methodology in the ${industry} industry.
+
+Requirements:
+- Use the specific sales methodology principles
+- Tailor content to the industry context
+- Make it practical and immediately usable
+- Include specific talking points and structure
+- Keep it concise but comprehensive
+- Use professional, confident tone
+
+Format the output as a clean, structured template that a sales professional can follow step-by-step.`
+
+    const userPrompt = `Generate a ${templateType} for:
+- Sales Methodology: ${methodology}
+- Call Type: ${callType}
+- Industry: ${industry}
+- Template Type: ${templateType}
+
+Please create a detailed, actionable template that follows the ${methodology} methodology and is specifically tailored for ${industry} sales professionals conducting ${callType} calls.`
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 2000,
+      temperature: 0.7,
+    })
+
+    const template = completion.choices[0]?.message?.content
+
+    if (!template) {
+      return NextResponse.json(
+        { error: "Failed to generate template" },
+        { status: 500 }
+      )
+    }
+
+    // TODO: Save template to database with usage tracking
+    // For now, we'll just return the generated template
+
+    return NextResponse.json({ 
+      success: true, 
+      template: template,
+      metadata: {
+        methodology,
+        callType,
+        industry,
+        templateType,
+        generatedAt: new Date().toISOString()
+      }
+    })
+  } catch (error) {
+    console.error("Template generation error:", error)
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request data", details: error.issues },
+        { status: 422 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: "Failed to generate template" },
+      { status: 500 }
+    )
+  }
+}
