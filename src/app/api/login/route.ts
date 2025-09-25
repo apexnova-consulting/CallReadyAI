@@ -1,54 +1,47 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { createUser, getUser, createSession } from "@/lib/simple-auth"
+import { validateUser, createSession } from "@/lib/simple-auth"
 
-const registerSchema = z.object({
-  name: z.string().min(1),
+const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 })
 
 export async function POST(req: Request) {
   try {
-    console.log("Simple registration attempt started")
+    console.log("Simple login attempt started")
     
     const formData = await req.formData()
-    const name = formData.get("name") as string
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    console.log("Form data received:", { name, email, password: password ? "***" : "missing" })
+    console.log("Form data received:", { email, password: password ? "***" : "missing" })
 
-    const { name: validatedName, email: validatedEmail, password: validatedPassword } = registerSchema.parse({
-      name,
+    const { email: validatedEmail, password: validatedPassword } = loginSchema.parse({
       email,
       password,
     })
 
     console.log("Data validated successfully")
 
-    // Check if user already exists
-    const existingUser = getUser(validatedEmail)
-    if (existingUser) {
-      console.log("User already exists")
+    // Validate user credentials
+    const user = await validateUser(validatedEmail, validatedPassword)
+    if (!user) {
+      console.log("Invalid credentials")
       return NextResponse.json(
-        { error: "User already exists" },
-        { status: 400 }
+        { error: "Invalid email or password" },
+        { status: 401 }
       )
     }
 
-    console.log("User doesn't exist, proceeding with creation")
-
-    // Create user in memory store
-    const user = await createUser(validatedEmail, validatedPassword, validatedName)
-    console.log("User created:", user.id)
+    console.log("User validated successfully:", user.id)
 
     // Create session and redirect to dashboard
     await createSession(user.id, user.email, user.name)
     
     return NextResponse.redirect(new URL("/dashboard", req.url))
   } catch (error) {
-    console.error("Registration error:", error)
+    console.error("Login error:", error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -1,8 +1,8 @@
 import Link from "next/link"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/lib/simple-auth"
 
 export default async function DashboardPage() {
-  const session = await auth()
+  const session = await requireAuth()
 
   // Simple in-memory data for demo
   const briefsUsed = 0 // Will be updated when briefs are created

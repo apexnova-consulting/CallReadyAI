@@ -1,11 +1,12 @@
 import Link from "next/link"
+import { getSession } from "@/lib/simple-auth"
+import { redirect } from "next/navigation"
 
-export default function Home() {
-  // Temporarily disable auth check to isolate the issue
-  // const session = await auth()
-  // if (session) {
-  //   redirect("/dashboard")
-  // }
+export default async function Home() {
+  const session = await getSession()
+  if (session) {
+    redirect("/dashboard")
+  }
 
   return (
     <div style={{ 

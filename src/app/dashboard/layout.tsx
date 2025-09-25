@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/lib/simple-auth"
 import Link from "next/link"
 
 export default async function DashboardLayout({
@@ -7,11 +7,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await auth()
-
-  if (!session) {
-    redirect("/login")
-  }
+  const session = await requireAuth()
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6" }}>
@@ -86,7 +82,7 @@ export default async function DashboardLayout({
               <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                 {session.user?.name || session.user?.email}
               </span>
-              <form action="/api/auth/signout" method="POST">
+              <form action="/api/logout" method="POST">
                 <button
                   type="submit"
                   style={{

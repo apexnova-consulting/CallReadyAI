@@ -1,9 +1,11 @@
-export default function RegisterPage() {
-  // Temporarily disable auth check to isolate the issue
-  // const session = await auth()
-  // if (session) {
-  //   redirect("/dashboard")
-  // }
+import { getSession } from "@/lib/simple-auth"
+import { redirect } from "next/navigation"
+
+export default async function RegisterPage() {
+  const session = await getSession()
+  if (session) {
+    redirect("/dashboard")
+  }
 
   return (
     <div style={{ 
