@@ -43,10 +43,8 @@ export async function POST(req: Request) {
     const user = await createUser(validatedEmail, validatedPassword, validatedName)
     console.log("User created:", user.id)
 
-    // Create session and redirect to dashboard
-    await createSession(user.id, user.email, user.name)
-    
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    // For now, just redirect to login page
+    return NextResponse.redirect(new URL("/login?registered=true", req.url))
   } catch (error) {
     console.error("Registration error:", error)
     

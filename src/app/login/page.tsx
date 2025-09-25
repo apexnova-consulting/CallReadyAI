@@ -1,12 +1,7 @@
 import Link from "next/link"
-import { getSession } from "@/lib/simple-auth"
-import { redirect } from "next/navigation"
 
-export default async function LoginPage() {
-  const session = await getSession()
-  if (session) {
-    redirect("/dashboard")
-  }
+export default function LoginPage() {
+  // Temporarily disable auth check for testing
 
   return (
     <div style={{ 

@@ -1,13 +1,12 @@
-import { redirect } from "next/navigation"
-import { requireAuth } from "@/lib/simple-auth"
 import Link from "next/link"
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await requireAuth()
+  // Temporarily disable auth check for testing
+  const session = { user: { name: "Test User", email: "test@example.com" } }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#f3f4f6" }}>

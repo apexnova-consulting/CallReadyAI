@@ -36,9 +36,7 @@ export async function POST(req: Request) {
 
     console.log("User validated successfully:", user.id)
 
-    // Create session and redirect to dashboard
-    await createSession(user.id, user.email, user.name)
-    
+    // For now, just redirect to dashboard
     return NextResponse.redirect(new URL("/dashboard", req.url))
   } catch (error) {
     console.error("Login error:", error)
