@@ -146,7 +146,11 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       })
     }
 
-    return NextResponse.json(brief)
+    return NextResponse.json({ 
+      success: true, 
+      brief: brief,
+      message: "Brief generated successfully"
+    })
   } catch (error) {
     console.error("Brief generation error:", error)
     return NextResponse.json(

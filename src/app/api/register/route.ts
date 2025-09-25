@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       success: true, 
       message: "Registration successful",
-      redirectUrl: "/test-minimal"
+      redirectUrl: "/dashboard"
     })
   } catch (error) {
     console.error("Registration error:", error)

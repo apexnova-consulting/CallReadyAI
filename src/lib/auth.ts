@@ -67,6 +67,9 @@ export async function createUser(email: string, password: string, name: string) 
     password: hashedPassword,
   })
   
+  // Create session immediately after user creation
+  await createSession(userId, email, name)
+  
   return { id: userId, email, name }
 }
 
