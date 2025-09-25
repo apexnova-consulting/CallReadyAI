@@ -32,6 +32,8 @@ export default function NewBriefPage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        // Store brief data in localStorage for the viewing page
+        localStorage.setItem(`brief_${data.brief.id}`, JSON.stringify(data.brief))
         router.push(`/dashboard/briefs/${data.brief.id}`)
       } else {
         setError(data.error || "Failed to create brief")
