@@ -36,13 +36,19 @@ function checkRateLimit(userId: string): boolean {
 
 export async function POST(req: Request) {
   try {
+    console.log("Template generation request started")
+    
     const session = await getSession()
     if (!session?.user?.id) {
+      console.log("No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Session found:", session.user.id)
+
     // Rate limiting
     if (!checkRateLimit(session.user.id)) {
+      console.log("Rate limit exceeded")
       return NextResponse.json(
         { error: "Rate limit exceeded. Please wait before generating another template." },
         { status: 429 }
@@ -50,7 +56,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    console.log("Request body:", body)
+    
     const { methodology, callType, industry, templateType } = templateSchema.parse(body)
+    console.log("Parsed data:", { methodology, callType, industry, templateType })
 
     // Create comprehensive system prompt for template generation
     const systemPrompt = `You are CallReady AI, an expert sales strategist and template creator. Generate a professional, actionable ${templateType} for ${callType} using the ${methodology} methodology in the ${industry} industry.
@@ -73,6 +82,7 @@ Format the output as a clean, structured template that a sales professional can 
 
 Please create a detailed, actionable template that follows the ${methodology} methodology and is specifically tailored for ${industry} sales professionals conducting ${callType} calls.`
 
+    console.log("Calling OpenAI API...")
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -83,14 +93,18 @@ Please create a detailed, actionable template that follows the ${methodology} me
       temperature: 0.7,
     })
 
+    console.log("OpenAI response received")
     const template = completion.choices[0]?.message?.content
 
     if (!template) {
+      console.log("No template content received from OpenAI")
       return NextResponse.json(
         { error: "Failed to generate template" },
         { status: 500 }
       )
     }
+
+    console.log("Template generated successfully")
 
     // TODO: Save template to database with usage tracking
     // For now, we'll just return the generated template

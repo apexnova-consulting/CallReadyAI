@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import OpenAI from "openai"
 import { getSession } from "@/lib/auth"
-import { db } from "@/lib/db"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -38,13 +37,19 @@ function checkRateLimit(userId: string): boolean {
 
 export async function POST(req: Request) {
   try {
+    console.log("Brief generation request started")
+    
     const session = await getSession()
     if (!session?.user?.id) {
+      console.log("No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Session found:", session.user.id)
+
     // Rate limiting
     if (!checkRateLimit(session.user.id)) {
+      console.log("Rate limit exceeded")
       return NextResponse.json(
         { error: "Rate limit exceeded. Please wait before generating another brief." },
         { status: 429 }
@@ -52,18 +57,14 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    console.log("Request body:", body)
+    
     const { prospectName, companyName, role, meetingLink, notes } = briefSchema.parse(body)
+    console.log("Parsed data:", { prospectName, companyName, role, meetingLink, notes })
 
-    // Check subscription limits
-    const subscription = await db.subscription.findUnique({
-      where: { userId: session.user.id },
-    })
-
-    const briefCount = await db.brief.count({
-      where: { userId: session.user.id },
-    })
-
-    const briefLimit = subscription?.briefsLimit || 5
+    // For now, use mock data - will be replaced with real database queries
+    const briefCount = 0 // Mock current brief count
+    const briefLimit = 5 // Mock limit for free users
     if (briefCount >= briefLimit) {
       return NextResponse.json(
         { error: "Brief limit exceeded. Please upgrade your plan." },
@@ -89,6 +90,7 @@ Role: ${role}
 ${meetingLink ? `Meeting Link: ${meetingLink}` : ""}
 ${notes ? `Additional Notes: ${notes}` : ""}`
 
+    console.log("Calling OpenAI API...")
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -99,7 +101,9 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       max_tokens: 1200,
     })
 
+    console.log("OpenAI response received")
     const response = completion.choices[0].message?.content || ""
+    console.log("Response length:", response.length)
 
     // Improved section parsing
     const parseSection = (content: string, sectionName: string): string => {
@@ -120,30 +124,22 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       competitive: parseSection(response, "6. Competitive Insights"),
     }
 
-    // Save brief to database
-    const brief = await db.brief.create({
-      data: {
-        userId: session.user.id,
-        prospectName,
-        companyName,
-        role,
-        meetingLink,
-        notes,
-        overview: sections.overview,
-        context: sections.context,
-        painPoints: sections.painPoints,
-        talkingPoints: sections.talkingPoints,
-        questions: sections.questions,
-        competitive: sections.competitive,
-      },
-    })
-
-    // Update subscription usage
-    if (subscription) {
-      await db.subscription.update({
-        where: { userId: session.user.id },
-        data: { briefsUsed: { increment: 1 } },
-      })
+    // Create mock brief object - will be replaced with real database save
+    const brief = {
+      id: `brief_${Date.now()}`,
+      userId: session.user.id,
+      prospectName,
+      companyName,
+      role,
+      meetingLink,
+      notes,
+      overview: sections.overview,
+      context: sections.context,
+      painPoints: sections.painPoints,
+      talkingPoints: sections.talkingPoints,
+      questions: sections.questions,
+      competitive: sections.competitive,
+      createdAt: new Date().toISOString(),
     }
 
     return NextResponse.json({ 
