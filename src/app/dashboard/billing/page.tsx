@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth"
+import { getSession } from "@/lib/auth"
 import { db } from "@/lib/db"
 import BillingForm from "./billing-form"
 
 export default async function BillingPage() {
-  const session = await auth()
+  const session = await getSession()
 
   const subscription = await db.subscription.findUnique({
     where: { userId: session?.user?.id },

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { auth } from "@/lib/auth"
+import { getSession } from "@/lib/auth"
 import { db } from "@/lib/db"
 import BriefView from "./brief-view"
 
@@ -10,7 +10,7 @@ interface BriefPageProps {
 }
 
 export default async function BriefPage({ params }: BriefPageProps) {
-  const session = await auth()
+  const session = await getSession()
   if (!session?.user?.id) {
     notFound()
   }
