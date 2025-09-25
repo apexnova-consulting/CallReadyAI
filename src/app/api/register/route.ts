@@ -43,8 +43,12 @@ export async function POST(req: Request) {
     const user = await createUser(validatedEmail, validatedPassword, validatedName)
     console.log("User created:", user.id)
 
-    // Redirect to working page
-    return NextResponse.redirect(new URL("/working", req.url))
+    // Return success response instead of redirect
+    return NextResponse.json({ 
+      success: true, 
+      message: "Registration successful",
+      redirectUrl: "/test-minimal"
+    })
   } catch (error) {
     console.error("Registration error:", error)
     

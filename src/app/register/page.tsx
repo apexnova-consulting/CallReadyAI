@@ -1,5 +1,40 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
 export default function RegisterPage() {
-  // Temporarily disable auth check for testing
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
+
+    const formData = new FormData(e.currentTarget)
+    
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Redirect to the success page
+        router.push(data.redirectUrl)
+      } else {
+        setError(data.error || "Registration failed")
+      }
+    } catch (error) {
+      setError("An error occurred. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div style={{ 
@@ -34,7 +69,21 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <form action="/api/register" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {error && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            marginBottom: '1rem',
+            fontSize: '0.875rem'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div>
             <label htmlFor="name" style={{ 
               display: 'block', 
@@ -119,20 +168,21 @@ export default function RegisterPage() {
 
           <button
             type="submit"
+            disabled={isLoading}
             style={{
               width: '100%',
               padding: '0.75rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: isLoading ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
               transition: 'transform 0.2s'
             }}
           >
-            Create Account
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
