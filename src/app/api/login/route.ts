@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { validateUser, createSession } from "@/lib/simple-auth"
+import { validateUser } from "@/lib/auth"
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
     console.log("User validated successfully:", user.id)
 
-    // For now, just redirect to dashboard
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    // Redirect to simple dashboard
+    return NextResponse.redirect(new URL("/dashboard-simple", req.url))
   } catch (error) {
     console.error("Login error:", error)
     

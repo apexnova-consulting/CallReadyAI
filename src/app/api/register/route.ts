@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { createUser, getUser, createSession } from "@/lib/simple-auth"
+import { createUser, getUser } from "@/lib/auth"
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -43,8 +43,8 @@ export async function POST(req: Request) {
     const user = await createUser(validatedEmail, validatedPassword, validatedName)
     console.log("User created:", user.id)
 
-    // For now, just redirect to login page
-    return NextResponse.redirect(new URL("/login?registered=true", req.url))
+    // Redirect to simple dashboard
+    return NextResponse.redirect(new URL("/dashboard-simple", req.url))
   } catch (error) {
     console.error("Registration error:", error)
     
