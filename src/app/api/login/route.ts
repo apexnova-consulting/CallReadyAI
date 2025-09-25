@@ -36,8 +36,16 @@ export async function POST(req: Request) {
 
     console.log("User validated successfully:", user.id)
 
-    // Redirect to simple dashboard
-    return NextResponse.redirect(new URL("/dashboard-simple", req.url))
+    // Create session for the user
+    const { createSession } = await import("@/lib/auth")
+    await createSession(user.id, user.email, user.name)
+
+    // Return success response instead of redirect
+    return NextResponse.json({ 
+      success: true, 
+      message: "Login successful",
+      redirectUrl: "/dashboard"
+    })
   } catch (error) {
     console.error("Login error:", error)
     

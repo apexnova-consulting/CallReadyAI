@@ -1,7 +1,44 @@
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
-  // Temporarily disable auth check for testing
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    const formData = new FormData()
+    formData.append("email", email)
+    formData.append("password", password)
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        router.push(data.redirectUrl || "/dashboard")
+      } else {
+        setError(data.error || "Login failed. Please try again.")
+      }
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div style={{ 
@@ -39,7 +76,21 @@ export default function LoginPage() {
           borderRadius: '1rem', 
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' 
         }}>
-              <form action="/api/login" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {error && (
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '0.75rem',
+              borderRadius: '0.5rem',
+              marginBottom: '1.5rem',
+              fontSize: '0.875rem'
+            }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
               <label htmlFor="email" style={{ 
                 display: 'block', 
@@ -55,13 +106,16 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
                   border: '1px solid #d1d5db',
                   borderRadius: '0.5rem',
                   fontSize: '0.875rem',
-                  outline: 'none'
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
                 }}
               />
             </div>
@@ -81,32 +135,37 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
                   border: '1px solid #d1d5db',
                   borderRadius: '0.5rem',
                   fontSize: '0.875rem',
-                  outline: 'none'
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
                 }}
               />
             </div>
 
             <button
               type="submit"
+              disabled={loading}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: loading ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '0.5rem',
                 fontSize: '0.875rem',
                 fontWeight: '600',
-                cursor: 'pointer'
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'transform 0.2s'
               }}
             >
-              Sign in
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
@@ -124,7 +183,7 @@ export default function LoginPage() {
                 <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
               </div>
               
-                  <form action="/api/auth/signin/google" method="POST">
+              <form action="/api/auth/signin/google" method="POST">
                 <button
                   type="submit"
                   style={{
