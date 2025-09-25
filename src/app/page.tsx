@@ -1,6 +1,10 @@
 import Link from "next/link"
 
-export default function Home() {
+export default function Home({
+  searchParams,
+}: {
+  searchParams: { registered?: string }
+}) {
   // Temporarily disable auth check for clean deployment
 
   return (
@@ -51,25 +55,39 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div style={{ 
-        flex: 1,
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        padding: '2rem',
-        textAlign: 'center'
-      }}>
-        <div style={{ maxWidth: '800px' }}>
-          <h1 style={{ 
-            fontSize: '3.5rem', 
-            fontWeight: 'bold', 
-            marginBottom: '1.5rem',
-            color: 'white',
-            lineHeight: '1.1'
+          {/* Success Message */}
+          {searchParams.registered && (
+            <div style={{
+              backgroundColor: 'rgba(34, 197, 94, 0.9)',
+              color: 'white',
+              padding: '1rem 2rem',
+              textAlign: 'center',
+              fontSize: '1rem',
+              fontWeight: '600'
+            }}>
+              ✅ Registration successful! You can now sign in to access your dashboard.
+            </div>
+          )}
+
+          {/* Hero Section */}
+          <div style={{ 
+            flex: 1,
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            padding: '2rem',
+            textAlign: 'center'
           }}>
-            AI-Powered Sales Call Briefs
-          </h1>
+            <div style={{ maxWidth: '800px' }}>
+              <h1 style={{ 
+                fontSize: '3.5rem', 
+                fontWeight: 'bold', 
+                marginBottom: '1.5rem',
+                color: 'white',
+                lineHeight: '1.1'
+              }}>
+                AI-Powered Sales Call Briefs
+              </h1>
           <p style={{ 
             fontSize: '1.25rem', 
             marginBottom: '2rem', 
