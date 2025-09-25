@@ -1,13 +1,11 @@
-import { redirect } from "next/navigation"
-import { auth, signIn } from "@/lib/auth"
 import Link from "next/link"
 
-export default async function LoginPage() {
-  const session = await auth()
-
-  if (session) {
-    redirect("/dashboard")
-  }
+export default function LoginPage() {
+  // Temporarily disable auth check to isolate the issue
+  // const session = await auth()
+  // if (session) {
+  //   redirect("/dashboard")
+  // }
 
   return (
     <div style={{ 
@@ -45,10 +43,7 @@ export default async function LoginPage() {
           borderRadius: '1rem', 
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' 
         }}>
-          <form action={async (formData) => {
-            "use server"
-            await signIn("credentials", formData, { redirectTo: "/dashboard" })
-          }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <form action="/api/auth/signin" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
               <label htmlFor="email" style={{ 
                 display: 'block', 
@@ -133,10 +128,7 @@ export default async function LoginPage() {
                 <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
               </div>
               
-              <form action={async () => {
-                "use server"
-                await signIn("google", { redirectTo: "/dashboard" })
-              }}>
+                  <form action="/api/auth/signin/google" method="POST">
                 <button
                   type="submit"
                   style={{

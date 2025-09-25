@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation"
-import { auth } from "@/lib/auth"
-
-export default async function RegisterPage() {
-  const session = await auth()
-
-  if (session) {
-    redirect("/dashboard")
-  }
+export default function RegisterPage() {
+  // Temporarily disable auth check to isolate the issue
+  // const session = await auth()
+  // if (session) {
+  //   redirect("/dashboard")
+  // }
 
   return (
     <div style={{ 
