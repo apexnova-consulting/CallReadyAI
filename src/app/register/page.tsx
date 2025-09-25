@@ -38,7 +38,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <form action="/api/auth/register" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form action="/api/register" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div>
             <label htmlFor="name" style={{ 
               display: 'block', 

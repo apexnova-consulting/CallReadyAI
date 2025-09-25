@@ -43,7 +43,7 @@ export default function LoginPage() {
           borderRadius: '1rem', 
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' 
         }}>
-              <form action="/api/auth/signin" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <form action="/api/auth/signin/credentials" method="POST" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
               <label htmlFor="email" style={{ 
                 display: 'block', 
