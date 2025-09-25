@@ -1,4 +1,4 @@
-export default function SimpleDashboardPage() {
+export default function SuccessPage() {
   return (
     <div style={{ 
       display: 'flex', 
@@ -7,14 +7,14 @@ export default function SimpleDashboardPage() {
       alignItems: 'center', 
       justifyContent: 'center', 
       padding: '24px',
-      backgroundColor: '#f3f4f6'
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     }}>
       <div style={{ 
         backgroundColor: 'white', 
         padding: '3rem', 
         borderRadius: '1rem', 
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        maxWidth: '600px',
+        maxWidth: '500px',
         width: '100%',
         textAlign: 'center'
       }}>
@@ -22,7 +22,7 @@ export default function SimpleDashboardPage() {
           fontSize: '4rem', 
           marginBottom: '1rem' 
         }}>
-          🎉
+          ✅
         </div>
         <h1 style={{ 
           fontSize: '2rem', 
@@ -30,34 +30,19 @@ export default function SimpleDashboardPage() {
           marginBottom: '1rem',
           color: '#22c55e'
         }}>
-          Dashboard Working!
+          Registration Successful!
         </h1>
         <p style={{ 
           fontSize: '1rem', 
           color: '#6b7280', 
           marginBottom: '2rem' 
         }}>
-          You have successfully accessed the dashboard. 
-          The authentication and routing system is working properly.
+          You have successfully registered for CallReady AI. 
+          Your account is now active and ready to use.
         </p>
-        <div style={{ 
-          backgroundColor: '#f0f9ff', 
-          padding: '1.5rem', 
-          borderRadius: '0.75rem', 
-          border: '1px solid #0ea5e9',
-          color: '#0c4a6e',
-          marginBottom: '2rem'
-        }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-            ✅ Authentication System Working
-          </h2>
-          <p style={{ fontSize: '0.875rem', marginBottom: '0' }}>
-            Registration, login, and session management are all functional.
-          </p>
-        </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <a
-            href="/"
+            href="/dashboard-simple"
             style={{
               padding: '0.75rem 1.5rem',
               backgroundColor: '#3b82f6',
@@ -66,13 +51,14 @@ export default function SimpleDashboardPage() {
               borderRadius: '0.5rem',
               fontSize: '1rem',
               fontWeight: '600',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
             }}
           >
-            Go Home
+            Go to Dashboard
           </a>
           <a
-            href="/login"
+            href="/"
             style={{
               padding: '0.75rem 1.5rem',
               backgroundColor: '#e5e7eb',
@@ -81,10 +67,11 @@ export default function SimpleDashboardPage() {
               borderRadius: '0.5rem',
               fontSize: '1rem',
               fontWeight: '600',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
             }}
           >
-            Login
+            Go Home
           </a>
         </div>
       </div>
