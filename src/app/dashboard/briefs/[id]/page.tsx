@@ -1,27 +1,35 @@
-import { notFound } from "next/navigation"
-import { getSession } from "@/lib/auth"
-import { db } from "@/lib/db"
-import BriefView from "./brief-view"
-
 interface BriefPageProps {
   params: {
     id: string
   }
 }
 
-export default async function BriefPage({ params }: BriefPageProps) {
-  const session = await getSession()
-  if (!session?.user?.id) {
-    notFound()
-  }
-
-  const brief = await db.brief.findUnique({
-    where: { id: params.id },
-  })
-
-  if (!brief || brief.userId !== session.user.id) {
-    notFound()
-  }
-
-  return <BriefView brief={brief} />
+export default function BriefPage({ params }: BriefPageProps) {
+  return (
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto", textAlign: "center" }}>
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "1rem", color: "#22c55e" }}>
+        ✅ Brief View Page
+      </h1>
+      <p style={{ fontSize: "1.25rem", color: "#4b5563", marginBottom: "2rem" }}>
+        Brief ID: {params.id}
+      </p>
+      <p style={{ fontSize: "1.25rem", color: "#4b5563", marginBottom: "2rem" }}>
+        Brief viewing functionality will be implemented once authentication is fully working.
+      </p>
+      <div style={{ 
+        backgroundColor: "#f0f9ff", 
+        padding: "2rem", 
+        borderRadius: "0.75rem", 
+        border: "1px solid #0ea5e9",
+        color: "#0c4a6e"
+      }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: "600", marginBottom: "1rem" }}>
+          Coming Soon
+        </h2>
+        <p>
+          AI-generated brief viewing, PDF export, and email sharing will be added after core authentication is stable.
+        </p>
+      </div>
+    </div>
+  )
 }
