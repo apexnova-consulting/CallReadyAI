@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
-import { db } from "@/lib/db"
+import { getBrief } from "@/lib/brief-storage"
 import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -15,29 +15,11 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // For now, return mock data - will be replaced with real database query
-    const brief = {
-      id: params.id,
-      prospectName: "John Smith",
-      companyName: "Acme Corporation",
-      role: "VP of Sales",
-      meetingLink: "https://calendly.com/example",
-      notes: "Interested in our enterprise solution",
-      overview: "John Smith is the VP of Sales at Acme Corporation, a mid-sized technology company with 500+ employees.",
-      context: "Acme Corporation is a B2B SaaS company that provides project management solutions to enterprise clients.",
-      painPoints: [
-        "Manual sales processes are slowing down deal closure",
-        "Lack of real-time visibility into sales pipeline"
-      ],
-      talkingPoints: [
-        "Our solution can reduce sales cycle time by 30%",
-        "Real-time pipeline visibility helps identify bottlenecks early"
-      ],
-      questions: [
-        "What's your current average sales cycle length?",
-        "How do you currently track deal progress?"
-      ],
-      competitiveInsights: "Acme is likely evaluating multiple sales automation tools."
+    // Get brief data from storage
+    const brief = getBrief(params.id)
+    
+    if (!brief) {
+      return NextResponse.json({ error: "Brief not found" }, { status: 404 })
     }
 
     // Create HTML email content

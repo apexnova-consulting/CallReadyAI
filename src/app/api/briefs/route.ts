@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getSession } from "@/lib/auth"
+import { storeBrief } from "@/lib/brief-storage"
 
 const briefSchema = z.object({
   prospectName: z.string().min(1),
@@ -198,6 +199,9 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
         createdAt: new Date().toISOString(),
       }
 
+      // Store brief in memory
+      storeBrief(brief)
+
       return NextResponse.json({ 
         success: true, 
         brief: brief,
@@ -224,7 +228,7 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       competitive: parseSection(response, "6. Competitive Insights"),
     }
 
-    // Create mock brief object - will be replaced with real database save
+    // Create brief object
     const brief = {
       id: `brief_${Date.now()}`,
       userId: session.user.id,
@@ -241,6 +245,9 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       competitive: sections.competitive,
       createdAt: new Date().toISOString(),
     }
+
+    // Store brief in memory
+    storeBrief(brief)
 
     return NextResponse.json({ 
       success: true, 
