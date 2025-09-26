@@ -127,7 +127,7 @@ export default function SettingsForm({ userData }: SettingsFormProps) {
     <div>
       {/* Header */}
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
           Account Settings
         </h1>
         <p style={{ color: "#6b7280" }}>

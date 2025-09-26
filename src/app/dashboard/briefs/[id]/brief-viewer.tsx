@@ -67,7 +67,7 @@ export default function BriefViewer({ briefId, serverBrief }: BriefViewerProps) 
     return (
       <div>
         <div style={{ marginBottom: "2rem" }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+          <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
             Brief Not Found
           </h1>
           <p style={{ color: "#6b7280" }}>
@@ -164,7 +164,7 @@ ${brief.competitive}
         marginBottom: "2rem" 
       }}>
         <div>
-          <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+          <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
             Call Brief
           </h1>
           <p style={{ color: "#6b7280" }}>

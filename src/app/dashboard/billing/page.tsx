@@ -35,7 +35,7 @@ export default async function BillingPage() {
       stripeCurrentPeriodEnd: null
     }
 
-  const plans = [
+    const plans = [
     {
       name: "Starter",
       price: 19,
@@ -88,7 +88,7 @@ export default async function BillingPage() {
     <div>
           {/* Header */}
           <div style={{ marginBottom: "2rem" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+            <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
               Billing & Subscription
             </h1>
             <p style={{ color: "#6b7280" }}>

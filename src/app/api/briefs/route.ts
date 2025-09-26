@@ -126,8 +126,26 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       
     } catch (geminiError) {
       console.error("Gemini API error:", geminiError)
+      
+      // Provide more detailed error information
+      let errorMessage = "AI service temporarily unavailable. Please try again in a few moments."
+      if (geminiError instanceof Error) {
+        if (geminiError.message.includes("401")) {
+          errorMessage = "AI service authentication failed. Please contact support."
+        } else if (geminiError.message.includes("403")) {
+          errorMessage = "AI service access denied. Please contact support."
+        } else if (geminiError.message.includes("429")) {
+          errorMessage = "AI service rate limit exceeded. Please wait a moment and try again."
+        } else if (geminiError.message.includes("500")) {
+          errorMessage = "AI service is experiencing issues. Please try again in a few minutes."
+        }
+      }
+      
       return NextResponse.json(
-        { error: "AI service temporarily unavailable. Please try again in a few moments." },
+        { 
+          error: errorMessage,
+          details: geminiError instanceof Error ? geminiError.message : "Unknown error"
+        },
         { status: 503 }
       )
     }

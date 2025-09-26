@@ -57,7 +57,7 @@ export default function NewBriefPage() {
     <div>
           {/* Header */}
           <div style={{ marginBottom: "2rem" }}>
-            <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+            <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
               Create New Brief
             </h1>
             <p style={{ color: "#6b7280" }}>
