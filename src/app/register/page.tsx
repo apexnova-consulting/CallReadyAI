@@ -24,6 +24,14 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        // Store user data in localStorage as backup
+        const userData = {
+          email: formData.get("email"),
+          name: formData.get("name"),
+          password: formData.get("password")
+        }
+        localStorage.setItem("user_backup", JSON.stringify(userData))
+        
         // Redirect to the success page
         router.push(data.redirectUrl)
       } else {

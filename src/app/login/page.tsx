@@ -31,6 +31,44 @@ export default function LoginPage() {
       if (res.ok && data.success) {
         router.push(data.redirectUrl || "/dashboard")
       } else {
+        // Try to restore user from localStorage if login fails
+        const userBackup = localStorage.getItem("user_backup")
+        if (userBackup && data.error === "Invalid email or password") {
+          try {
+            const userData = JSON.parse(userBackup)
+            if (userData.email === email) {
+              console.log("Attempting to restore user from backup")
+              
+              const restoreRes = await fetch("/api/restore-user", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(userData),
+              })
+
+              const restoreData = await restoreRes.json()
+
+              if (restoreRes.ok && restoreData.success) {
+                // Try login again after restore
+                const loginRes = await fetch("/api/login", {
+                  method: "POST",
+                  body: formData,
+                })
+
+                const loginData = await loginRes.json()
+
+                if (loginRes.ok && loginData.success) {
+                  router.push(loginData.redirectUrl || "/dashboard")
+                  return
+                }
+              }
+            }
+          } catch (restoreError) {
+            console.error("User restore failed:", restoreError)
+          }
+        }
+        
         setError(data.error || "Login failed. Please try again.")
       }
     } catch (err: any) {
