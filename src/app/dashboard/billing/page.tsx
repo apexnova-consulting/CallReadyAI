@@ -1,23 +1,29 @@
-import { getSession } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { getAllBriefsForUser } from "@/lib/brief-storage"
+"use client"
 
-export default async function BillingPage() {
-  const session = await getSession()
-  
-  if (!session) {
-    redirect("/login")
-  }
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
-  // Get brief usage data with error handling
-  let briefsUsed = 0
-  try {
-    const userBriefs = getAllBriefsForUser(session.user.id)
-    briefsUsed = userBriefs.length
-  } catch (error) {
-    console.error("Error getting user briefs:", error)
-    briefsUsed = 0
-  }
+export default function BillingPage() {
+  const [briefsUsed, setBriefsUsed] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    // Load brief count from localStorage
+    try {
+      const stored = localStorage.getItem('callready_briefs')
+      if (stored) {
+        const briefs = JSON.parse(stored)
+        // For now, we'll use a mock user ID - in production this would come from session
+        const userBriefs = briefs.filter((brief: any) => brief.userId === "user_123")
+        setBriefsUsed(userBriefs.length)
+      }
+    } catch (error) {
+      console.error('Failed to load brief count:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   const briefsLimit = 5 // Free tier limit
   const currentPlan = briefsUsed >= briefsLimit ? "Pro" : "Free"

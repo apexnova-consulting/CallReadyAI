@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
 export default function TemplatesPage() {
@@ -11,12 +11,27 @@ export default function TemplatesPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [generatedTemplate, setGeneratedTemplate] = useState("")
   const [error, setError] = useState("")
+  const [templatesUsed, setTemplatesUsed] = useState(0)
   const router = useRouter()
 
   // Mock user data - will be replaced with real data
   const userPlan = "Free" // or "Starter", "Pro", "Enterprise"
-  const templatesUsed = 0
   const templatesLimit = userPlan === "Free" ? 1 : userPlan === "Starter" ? 5 : userPlan === "Pro" ? 20 : 999
+
+  useEffect(() => {
+    // Load template count from localStorage
+    try {
+      const stored = localStorage.getItem('callready_templates')
+      if (stored) {
+        const templates = JSON.parse(stored)
+        // For now, we'll use a mock user ID - in production this would come from session
+        const userTemplates = templates.filter((template: any) => template.userId === "user_123")
+        setTemplatesUsed(userTemplates.length)
+      }
+    } catch (error) {
+      console.error('Failed to load template count:', error)
+    }
+  }, [])
 
   const methodologies = [
     { id: "value-selling", name: "Value Selling", description: "Focus on customer value and ROI" },
@@ -87,6 +102,14 @@ export default function TemplatesPage() {
 
       if (response.ok && data.success) {
         setGeneratedTemplate(data.template.content)
+        
+        // Store template in localStorage
+        const existingTemplates = JSON.parse(localStorage.getItem('callready_templates') || '[]')
+        existingTemplates.push(data.template)
+        localStorage.setItem('callready_templates', JSON.stringify(existingTemplates))
+        
+        // Update template count
+        setTemplatesUsed(prev => prev + 1)
       } else {
         setError(data.error || "Failed to generate template")
       }

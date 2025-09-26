@@ -187,21 +187,48 @@ ${brief.competitive}
           >
             Copy Brief
           </button>
-          <a
-            href={`/api/briefs/${brief.id}/pdf`}
-            target="_blank"
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: "#dc2626",
-              color: "white",
-              textDecoration: "none",
-              borderRadius: "0.5rem",
-              fontSize: "0.875rem",
-              fontWeight: "600"
-            }}
-          >
-            Download PDF
-          </a>
+              <a
+                href="#"
+                onClick={async (e) => {
+                  e.preventDefault()
+                  try {
+                    const response = await fetch(`/api/briefs/${brief.id}/pdf`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ brief })
+                    })
+                    
+                    if (response.ok) {
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `${brief.prospectName}-${brief.companyName}-Brief.pdf`
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      window.URL.revokeObjectURL(url)
+                    } else {
+                      alert('Failed to generate PDF. Please try again.')
+                    }
+                  } catch (error) {
+                    alert('Error generating PDF. Please try again.')
+                  }
+                }}
+                style={{
+                  padding: "0.75rem 1.5rem",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  textDecoration: "none",
+                  borderRadius: "0.5rem",
+                  fontSize: "0.875rem",
+                  fontWeight: "600"
+                }}
+              >
+                Download PDF
+              </a>
           <a
             href={`/api/briefs/${brief.id}/email`}
             style={{

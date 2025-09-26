@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getSession } from "@/lib/auth"
+import { storeTemplate, getAllTemplatesForUser, TemplateData } from "@/lib/template-storage"
 
 const templateSchema = z.object({
   methodology: z.string().min(1),
@@ -25,6 +26,19 @@ export async function POST(req: Request) {
     const { methodology, callType, industry, templateType } = templateSchema.parse(body)
 
     console.log("Template data validated:", { methodology, callType, industry, templateType })
+
+    // Check template limit for free users
+    const userTemplates = getAllTemplatesForUser(session.user.id)
+    const templatesUsed = userTemplates.length
+    const templatesLimit = 1 // Free tier limit
+
+    if (templatesUsed >= templatesLimit) {
+      console.log("Template limit exceeded")
+      return NextResponse.json(
+        { error: "Free plan limited to 1 template. Upgrade to generate more templates." },
+        { status: 402 }
+      )
+    }
 
     // Generate AI template with improved system prompt
     const systemPrompt = `You are CallReady AI, an expert sales strategist. Generate a professional ${templateType} template based on the following criteria:
@@ -147,18 +161,25 @@ IMPORTANT: Create a unique, professional template tailored to the specific metho
 
     console.log("Template generated successfully")
 
+    const template: TemplateData = {
+      id: `template_${Date.now()}`,
+      userId: session.user.id,
+      methodology,
+      callType,
+      industry,
+      templateType,
+      content: response,
+      createdAt: new Date().toISOString()
+    }
+
+    // Store template
+    storeTemplate(template)
+
     return NextResponse.json({
       success: true,
       template: {
-        id: `template_${Date.now()}`,
-        userId: session.user.id,
-        methodology,
-        callType,
-        industry,
-        templateType,
-        content: response,
-        sections,
-        createdAt: new Date().toISOString()
+        ...template,
+        sections
       }
     })
 

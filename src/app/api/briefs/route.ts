@@ -122,6 +122,8 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
 
     let response
     try {
+      console.log("Making Gemini API call with prompt:", `${systemPrompt}\n\n${userPrompt}`)
+      
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
         method: 'POST',
         headers: {
@@ -135,18 +137,25 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
             }]
           }],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1200,
+            temperature: 0.8,
+            maxOutputTokens: 1500,
           }
         })
       })
 
+      console.log("Gemini response status:", geminiResponse.status)
+      
       if (!geminiResponse.ok) {
-        throw new Error(`Gemini API error: ${geminiResponse.status}`)
+        const errorText = await geminiResponse.text()
+        console.error("Gemini API error response:", errorText)
+        throw new Error(`Gemini API error: ${geminiResponse.status} - ${errorText}`)
       }
 
       const geminiData = await geminiResponse.json()
+      console.log("Gemini API response data:", JSON.stringify(geminiData, null, 2))
+      
       response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
+      console.log("Extracted response text:", response)
       
     } catch (geminiError) {
       console.error("Gemini API error:", geminiError)

@@ -5,7 +5,7 @@ import PDFDocument from "pdfkit"
 
 export const runtime = "nodejs"
 
-export async function GET(
+export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
@@ -21,8 +21,21 @@ export async function GET(
     console.log("Session found for PDF generation:", session.user.id)
 
     // Get brief data from storage
-    const brief = getBrief(params.id)
-    console.log("Brief found:", brief ? "Yes" : "No")
+    let brief = getBrief(params.id)
+    console.log("Brief found in server storage:", brief ? "Yes" : "No")
+    
+    // If not found in server storage, try to get from request body (client can send it)
+    if (!brief) {
+      try {
+        const requestBody = await req.json()
+        if (requestBody.brief) {
+          brief = requestBody.brief
+          console.log("Brief found in request body")
+        }
+      } catch (error) {
+        console.log("No brief in request body")
+      }
+    }
     
     if (!brief) {
       console.log("Brief not found in storage for ID:", params.id)
