@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 5. Questions to Ask
 6. Competitive Insights
 
-IMPORTANT: Make each brief unique based on the specific prospect, company, and role provided. Research and provide relevant insights about the company, industry, and role. Include specific pain points, talking points, and questions tailored to their situation. Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
+CRITICAL: Make each brief completely unique and tailored to the specific prospect, company, and role provided. Research and provide relevant insights about the company, industry, and role. Include specific pain points, talking points, and questions tailored to their situation. Use the company name, prospect name, role, and any additional notes to create a personalized brief. Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
 
     const userPrompt = `Prospect: ${prospectName}
 Company: ${companyName}
@@ -99,10 +99,11 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
 
     let response
     try {
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-goog-api-key': process.env.GEMINI_API_KEY || '',
         },
         body: JSON.stringify({
           contents: [{

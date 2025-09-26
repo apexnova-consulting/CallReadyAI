@@ -10,17 +10,26 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log("PDF generation request for brief ID:", params.id)
+    
     const session = await getSession()
     if (!session?.user?.id) {
+      console.log("No session found for PDF generation")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Session found for PDF generation:", session.user.id)
+
     // Get brief data from storage
     const brief = getBrief(params.id)
+    console.log("Brief found:", brief ? "Yes" : "No")
     
     if (!brief) {
+      console.log("Brief not found in storage for ID:", params.id)
       return NextResponse.json({ error: "Brief not found" }, { status: 404 })
     }
+
+    console.log("Generating PDF for brief:", brief.prospectName, "at", brief.companyName)
 
     // Create PDF document
     const doc = new PDFDocument({ margin: 50 })

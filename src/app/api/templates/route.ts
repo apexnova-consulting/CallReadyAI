@@ -51,10 +51,11 @@ IMPORTANT: Create a unique, professional template tailored to the specific metho
 
     let response
     try {
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-goog-api-key': process.env.GEMINI_API_KEY || '',
         },
         body: JSON.stringify({
           contents: [{
