@@ -201,17 +201,35 @@ ${brief.competitive}
                     })
                     
                     if (response.ok) {
-                      const blob = await response.blob()
-                      const url = window.URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = `${brief.prospectName}-${brief.companyName}-Brief.pdf`
-                      document.body.appendChild(a)
-                      a.click()
-                      document.body.removeChild(a)
-                      window.URL.revokeObjectURL(url)
+                      const contentType = response.headers.get('content-type')
+                      
+                      if (contentType?.includes('application/pdf')) {
+                        // Handle PDF response
+                        const blob = await response.blob()
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${brief.prospectName}-${brief.companyName}-Brief.pdf`
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        window.URL.revokeObjectURL(url)
+                      } else {
+                        // Handle text response (fallback)
+                        const text = await response.text()
+                        const blob = new Blob([text], { type: 'text/plain' })
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${brief.prospectName}-${brief.companyName}-Brief.txt`
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        window.URL.revokeObjectURL(url)
+                      }
                     } else {
-                      alert('Failed to generate PDF. Please try again.')
+                      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+                      alert(`Failed to generate PDF: ${errorData.error || 'Please try again.'}`)
                     }
                   } catch (error) {
                     alert('Error generating PDF. Please try again.')
