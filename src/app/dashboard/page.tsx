@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { getAllBriefsForUser } from "@/lib/brief-storage"
 
 export default async function DashboardPage() {
   const session = await getSession()
@@ -9,13 +10,12 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  // Mock data for now - will be replaced with real database queries
-  const userStats = {
-    briefsUsed: 0,
-    briefsLimit: 5,
-    currentPlan: "Free",
-    recentBriefs: []
-  }
+  // Get real brief data for the user
+  const userBriefs = getAllBriefsForUser(session.user.id)
+  const briefsUsed = userBriefs.length
+  const briefsLimit = 5 // Free tier limit
+  const currentPlan = briefsUsed >= briefsLimit ? "Pro" : "Free"
+  const recentBriefs = userBriefs.slice(0, 5) // Show last 5 briefs
 
   return (
     <div>
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
               textAlign: "center"
             }}>
               <h3 style={{ fontSize: "2rem", fontWeight: "bold", color: "#667eea" }}>
-                {userStats.briefsUsed}
+                {briefsUsed}
               </h3>
               <p style={{ color: "#6b7280" }}>Briefs Generated</p>
             </div>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
               textAlign: "center"
             }}>
               <h3 style={{ fontSize: "2rem", fontWeight: "bold", color: "#667eea" }}>
-                {userStats.briefsLimit - userStats.briefsUsed}
+                {Math.max(0, briefsLimit - briefsUsed)}
               </h3>
               <p style={{ color: "#6b7280" }}>Remaining</p>
             </div>
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
               textAlign: "center"
             }}>
               <h3 style={{ fontSize: "2rem", fontWeight: "bold", color: "#667eea" }}>
-                {userStats.currentPlan}
+                {currentPlan}
               </h3>
               <p style={{ color: "#6b7280" }}>Current Plan</p>
             </div>
@@ -180,31 +180,87 @@ export default async function DashboardPage() {
               <h2 style={{ fontSize: "1.25rem", fontWeight: "600" }}>Recent Briefs</h2>
             </div>
             
-            <div style={{ 
-              padding: "3rem", 
-              textAlign: "center",
-              color: "#6b7280"
-            }}>
-              <h3 style={{ fontSize: "1.125rem", fontWeight: "500", marginBottom: "0.5rem" }}>
-                No briefs yet
-              </h3>
-              <p style={{ marginBottom: "1.5rem" }}>
-                Create your first AI-powered sales call brief
-              </p>
-              <Link 
-                href="/dashboard/new"
-                style={{ 
-                  padding: "0.75rem 1.5rem", 
-                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
-                  color: "white", 
-                  textDecoration: "none", 
-                  borderRadius: "0.5rem",
-                  fontWeight: "600"
-                }}
-              >
-                Create Your First Brief
-              </Link>
-            </div>
+            {recentBriefs.length === 0 ? (
+              <div style={{ 
+                padding: "3rem", 
+                textAlign: "center",
+                color: "#6b7280"
+              }}>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "500", marginBottom: "0.5rem" }}>
+                  No briefs yet
+                </h3>
+                <p style={{ marginBottom: "1.5rem" }}>
+                  Create your first AI-powered sales call brief
+                </p>
+                <Link 
+                  href="/dashboard/new"
+                  style={{ 
+                    padding: "0.75rem 1.5rem", 
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
+                    color: "white", 
+                    textDecoration: "none", 
+                    borderRadius: "0.5rem",
+                    fontWeight: "600"
+                  }}
+                >
+                  Create Your First Brief
+                </Link>
+              </div>
+            ) : (
+              <div>
+                {recentBriefs.map((brief, index) => (
+                  <div 
+                    key={brief.id}
+                    style={{ 
+                      padding: "1.5rem", 
+                      borderBottom: index < recentBriefs.length - 1 ? "1px solid #e5e7eb" : "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}
+                  >
+                    <div>
+                      <h3 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.25rem" }}>
+                        {brief.prospectName} at {brief.companyName}
+                      </h3>
+                      <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "0.25rem" }}>
+                        {brief.role}
+                      </p>
+                      <p style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                        Generated {new Date(brief.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <Link 
+                        href={`/dashboard/briefs/${brief.id}`}
+                        style={{ 
+                          padding: "0.5rem 1rem", 
+                          backgroundColor: "#f3f4f6", 
+                          color: "#374151",
+                          textDecoration: "none", 
+                          borderRadius: "0.375rem",
+                          fontSize: "0.875rem",
+                          fontWeight: "500"
+                        }}
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+                {userBriefs.length > 5 && (
+                  <div style={{ 
+                    padding: "1rem", 
+                    textAlign: "center",
+                    backgroundColor: "#f9fafb"
+                  }}>
+                    <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                      Showing 5 of {userBriefs.length} briefs
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { getAllBriefsForUser } from "@/lib/brief-storage"
 
 export default async function BillingPage() {
   const session = await getSession()
@@ -8,12 +9,16 @@ export default async function BillingPage() {
     redirect("/login")
   }
 
-  // Mock subscription data for now
+  // Get real brief usage data
+  const userBriefs = getAllBriefsForUser(session.user.id)
+  const briefsUsed = userBriefs.length
+  const briefsLimit = 5 // Free tier limit
+  
   const subscription = {
-    plan: "Free",
+    plan: briefsUsed >= briefsLimit ? "Pro" : "Free",
     status: "active",
-    briefsUsed: 0,
-    briefsLimit: 5,
+    briefsUsed: briefsUsed,
+    briefsLimit: briefsLimit,
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     stripeCurrentPeriodEnd: null
