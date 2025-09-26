@@ -23,7 +23,8 @@ const briefs = new Map<string, BriefData>()
 
 export function storeBrief(brief: BriefData) {
   briefs.set(brief.id, brief)
-  console.log(`Brief stored: ${brief.id}`)
+  console.log(`Brief stored: ${brief.id} for user: ${brief.userId}`)
+  console.log(`Total briefs in storage: ${briefs.size}`)
 }
 
 export function getBrief(briefId: string): BriefData | null {
@@ -32,6 +33,7 @@ export function getBrief(briefId: string): BriefData | null {
     console.log(`Brief retrieved: ${briefId}`)
   } else {
     console.log(`Brief not found: ${briefId}`)
+    console.log(`Available brief IDs: ${Array.from(briefs.keys()).join(', ')}`)
   }
   return brief || null
 }
