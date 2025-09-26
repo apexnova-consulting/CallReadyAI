@@ -1,16 +1,56 @@
-import Link from "next/link"
-import { getSession } from "@/lib/auth"
-import { redirect } from "next/navigation"
+"use client"
 
-export default async function DashboardLayout({
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await getSession()
-  
+  const [session, setSession] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check if user is logged in by looking for session data
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/me')
+        if (response.ok) {
+          const userData = await response.json()
+          setSession({ user: userData })
+        } else {
+          router.push('/login')
+        }
+      } catch (error) {
+        console.error('Session check failed:', error)
+        router.push('/login')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkSession()
+  }, [router])
+
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        backgroundColor: '#f3f4f6'
+      }}>
+        <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>Loading...</div>
+      </div>
+    )
+  }
+
   if (!session) {
-    redirect("/login")
+    return null // Will redirect to login
   }
 
   return (
@@ -97,23 +137,49 @@ export default async function DashboardLayout({
               <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                 {session.user?.name || session.user?.email}
               </span>
-              <form action="/api/logout" method="POST">
-                <button
-                  type="submit"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    backgroundColor: "#f3f4f6",
-                    color: "#374151",
-                    border: "none",
-                    borderRadius: "0.375rem",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    cursor: "pointer"
-                  }}
-                >
-                  Sign Out
-                </button>
-              </form>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/logout', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                    })
+                    
+                    const data = await response.json()
+                    
+                    if (response.ok && data.success) {
+                      // Clear localStorage
+                      localStorage.removeItem('callready_briefs')
+                      localStorage.removeItem('callready_templates')
+                      
+                      // Redirect to home page
+                      window.location.href = data.redirectUrl || '/'
+                    } else {
+                      console.error('Logout failed:', data.error)
+                      // Force redirect even if logout fails
+                      window.location.href = '/'
+                    }
+                  } catch (error) {
+                    console.error('Logout error:', error)
+                    // Force redirect even if logout fails
+                    window.location.href = '/'
+                  }
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#f3f4f6",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: "0.375rem",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </div>

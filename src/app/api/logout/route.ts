@@ -6,12 +6,20 @@ export async function POST(req: Request) {
     // Destroy the session
     await destroySession()
     
-    // Redirect to home page
-    return NextResponse.redirect(new URL("/", req.url))
+    // Return success response instead of redirect
+    return NextResponse.json({ 
+      success: true, 
+      message: "Logged out successfully",
+      redirectUrl: "/"
+    })
   } catch (error) {
     console.error("Logout error:", error)
-    // Even if there's an error, try to destroy session and redirect
+    // Even if there's an error, try to destroy session
     await destroySession()
-    return NextResponse.redirect(new URL("/", req.url))
+    return NextResponse.json({ 
+      success: true, 
+      message: "Logged out successfully",
+      redirectUrl: "/"
+    })
   }
 }
