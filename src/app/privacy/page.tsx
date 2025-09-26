@@ -1,12 +1,17 @@
 export default function PrivacyPage() {
   return (
     <div style={{ 
-      maxWidth: "800px", 
-      margin: "0 auto", 
-      padding: "2rem",
-      lineHeight: "1.6",
-      color: "#374151"
+      minHeight: "100vh",
+      backgroundColor: "#ffffff",
+      padding: "2rem 0"
     }}>
+      <div style={{ 
+        maxWidth: "800px", 
+        margin: "0 auto", 
+        padding: "2rem",
+        lineHeight: "1.6",
+        color: "#374151"
+      }}>
       <h1 style={{ 
         fontSize: "2rem", 
         fontWeight: "bold", 
@@ -111,6 +116,7 @@ export default function PrivacyPage() {
           Email: privacy@callreadyai.com<br />
           Address: CallReady AI, Inc.
         </p>
+      </div>
       </div>
     </div>
   )

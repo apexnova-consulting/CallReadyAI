@@ -3,26 +3,37 @@ import { redirect } from "next/navigation"
 import { getAllBriefsForUser } from "@/lib/brief-storage"
 
 export default async function BillingPage() {
-  const session = await getSession()
-  
-  if (!session) {
-    redirect("/login")
-  }
+  try {
+    const session = await getSession()
+    
+    if (!session) {
+      redirect("/login")
+    }
 
-  // Get real brief usage data
-  const userBriefs = getAllBriefsForUser(session.user.id)
-  const briefsUsed = userBriefs.length
-  const briefsLimit = 5 // Free tier limit
-  
-  const subscription = {
-    plan: briefsUsed >= briefsLimit ? "Pro" : "Free",
-    status: "active",
-    briefsUsed: briefsUsed,
-    briefsLimit: briefsLimit,
-    stripeCustomerId: null,
-    stripeSubscriptionId: null,
-    stripeCurrentPeriodEnd: null
-  }
+    // Get real brief usage data with error handling
+    let userBriefs = []
+    let briefsUsed = 0
+    let briefsLimit = 5 // Free tier limit
+    
+    try {
+      userBriefs = getAllBriefsForUser(session.user.id)
+      briefsUsed = userBriefs.length
+    } catch (error) {
+      console.error("Error getting user briefs:", error)
+      // Fallback to safe defaults
+      userBriefs = []
+      briefsUsed = 0
+    }
+    
+    const subscription = {
+      plan: briefsUsed >= briefsLimit ? "Pro" : "Free",
+      status: "active",
+      briefsUsed: briefsUsed,
+      briefsLimit: briefsLimit,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      stripeCurrentPeriodEnd: null
+    }
 
   const plans = [
     {
@@ -292,4 +303,47 @@ export default async function BillingPage() {
           )}
     </div>
   )
+  } catch (error) {
+    console.error("Billing page error:", error)
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '50vh',
+        padding: '2rem'
+      }}>
+        <h1 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 'bold', 
+          marginBottom: '1rem',
+          color: '#dc2626'
+        }}>
+          Billing Page Error
+        </h1>
+        <p style={{ 
+          color: '#6b7280', 
+          marginBottom: '1.5rem',
+          textAlign: 'center'
+        }}>
+          We're experiencing a technical issue with the billing page. Please try again later.
+        </p>
+        <a
+          href="/dashboard"
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#667eea',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            fontWeight: '600'
+          }}
+        >
+          Back to Dashboard
+        </a>
+      </div>
+    )
+  }
 }

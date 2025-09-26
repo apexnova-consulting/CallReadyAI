@@ -27,7 +27,7 @@ export default async function DashboardPage() {
             marginBottom: "2rem" 
           }}>
             <div>
-              <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+              <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem", color: "#1e293b" }}>
                 Dashboard
               </h1>
               <p style={{ color: "#6b7280" }}>

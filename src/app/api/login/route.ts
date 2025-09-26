@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { validateUser } from "@/lib/auth"
+import { validateUser, getAllUsers } from "@/lib/auth"
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -24,17 +24,18 @@ export async function POST(req: Request) {
 
     console.log("Data validated successfully")
 
-    // Validate user credentials
-    const user = await validateUser(validatedEmail, validatedPassword)
-    if (!user) {
-      console.log("Invalid credentials")
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      )
-    }
+        // Validate user credentials
+        const user = await validateUser(validatedEmail, validatedPassword)
+        if (!user) {
+          console.log("Invalid credentials for email:", validatedEmail)
+          console.log("Available users:", getAllUsers().map(u => ({ id: u.id, email: u.email, name: u.name })))
+          return NextResponse.json(
+            { error: "Invalid email or password" },
+            { status: 401 }
+          )
+        }
 
-    console.log("User validated successfully:", user.id)
+        console.log("User validated successfully:", user.id)
 
     // Create session for the user
     const { createSession } = await import("@/lib/auth")
