@@ -70,7 +70,7 @@ export default function TemplatesPage() {
     setGeneratedTemplate("")
 
     try {
-      const response = await fetch("/api/templates/generate", {
+      const response = await fetch("/api/templates", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -86,7 +86,7 @@ export default function TemplatesPage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
-        setGeneratedTemplate(data.template)
+        setGeneratedTemplate(data.template.content)
       } else {
         setError(data.error || "Failed to generate template")
       }

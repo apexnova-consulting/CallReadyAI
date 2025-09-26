@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getSession } from "@/lib/auth"
-import { storeBrief } from "@/lib/brief-storage"
+import { storeBrief, getAllBriefsForUser, BriefData } from "@/lib/brief-storage"
 
 const briefSchema = z.object({
   prospectName: z.string().min(1),
@@ -290,6 +290,3 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
     )
   }
 }
-
-// Import the getAllBriefsForUser function
-import { getAllBriefsForUser } from "@/lib/brief-storage"

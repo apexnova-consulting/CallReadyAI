@@ -31,13 +31,19 @@ export default function NewBriefPage() {
 
       const data = await response.json()
 
-      if (response.ok && data.success) {
-        // Store brief data in localStorage for the viewing page
-        localStorage.setItem(`brief_${data.brief.id}`, JSON.stringify(data.brief))
-        router.push(`/dashboard/briefs/${data.brief.id}`)
-      } else {
-        setError(data.error || "Failed to create brief")
-      }
+          if (response.ok && data.success) {
+            // Store brief data in localStorage for the viewing page
+            localStorage.setItem(`brief_${data.brief.id}`, JSON.stringify(data.brief))
+            
+            // Also update the main briefs list in localStorage
+            const existingBriefs = JSON.parse(localStorage.getItem('callready_briefs') || '[]')
+            existingBriefs.push(data.brief)
+            localStorage.setItem('callready_briefs', JSON.stringify(existingBriefs))
+            
+            router.push(`/dashboard/briefs/${data.brief.id}`)
+          } else {
+            setError(data.error || "Failed to create brief")
+          }
     } catch (error) {
       setError("An error occurred. Please try again.")
     } finally {
