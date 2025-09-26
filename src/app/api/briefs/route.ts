@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 5. Questions to Ask
 6. Competitive Insights
 
-Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
+IMPORTANT: Make each brief unique based on the specific prospect, company, and role provided. Research and provide relevant insights about the company, industry, and role. Include specific pain points, talking points, and questions tailored to their situation. Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
 
     const userPrompt = `Prospect: ${prospectName}
 Company: ${companyName}
@@ -133,35 +133,41 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
 • ${prospectName} is the ${role} at ${companyName}
 • Key decision maker for sales opportunities
 • Professional with industry experience
+• Focus on building rapport and understanding their priorities
 
 2. Company Context
 • ${companyName} is a growing company in their industry
 • Looking to improve their business processes
 • Potential for significant growth and expansion
+• Current market position and competitive landscape
 
 3. Potential Pain Points
 • Manual processes slowing down operations
 • Lack of visibility into key metrics
 • Difficulty scaling current solutions
 • Need for better efficiency and automation
+• Resource constraints and budget considerations
 
 4. Key Talking Points
 • Our solution addresses their specific challenges
-• Proven ROI with similar companies
+• Proven ROI with similar companies in their industry
 • Easy implementation and user adoption
 • Strong support and training programs
+• Scalable solution that grows with their business
 
 5. Questions to Ask
 • What's your biggest challenge right now?
 • How do you currently handle this process?
 • What would success look like for you?
 • What's your timeline for making a decision?
+• Who else is involved in this decision-making process?
 
 6. Competitive Insights
 • Focus on our unique value proposition
-• Emphasize customer success stories
+• Emphasize customer success stories from similar companies
 • Highlight our superior support and training
-• Address any competitive concerns directly`
+• Address any competitive concerns directly
+• Demonstrate ROI and time-to-value`
 
       response = fallbackResponse
     }
