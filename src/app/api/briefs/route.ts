@@ -74,15 +74,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    console.log("Request body:", body)
-    
     const { prospectName, companyName, role, meetingLink, notes } = briefSchema.parse(body)
-    console.log("Parsed data:", { prospectName, companyName, role, meetingLink, notes })
 
-    // For now, use mock data - will be replaced with real database queries
-    const briefCount = 0 // Mock current brief count
-    const briefLimit = 5 // Mock limit for free users
-    if (briefCount >= briefLimit) {
+    console.log("Brief data validated:", { prospectName, companyName, role })
+
+    // Check brief limit (mock - in production, this would check database)
+    const userBriefs = getAllBriefsForUser(session.user.id)
+    const briefsUsed = userBriefs.length
+    const briefsLimit = 5 // Free tier limit
+
+    if (briefsUsed >= briefsLimit) {
+      console.log("Brief limit exceeded")
       return NextResponse.json(
         { error: "Brief limit exceeded. Please upgrade your plan." },
         { status: 402 }
@@ -257,79 +259,37 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       competitive: sections.competitive,
       createdAt: new Date().toISOString()
     }
-        companyName,
-        role,
-        meetingLink,
-        notes,
-        overview: sections.overview,
-        context: sections.context,
-        painPoints: sections.painPoints,
-        talkingPoints: sections.talkingPoints,
-        questions: sections.questions,
-        competitive: sections.competitive,
-        createdAt: new Date().toISOString(),
-      }
-
-      // Store brief in memory
-      storeBrief(brief)
-
-      return NextResponse.json({ 
-        success: true, 
-        brief: brief,
-        message: "Brief generated successfully (using fallback template)"
-      })
-    }
-
-    // Improved section parsing
-    const parseSection = (content: string, sectionName: string): string => {
-      const regex = new RegExp(`${sectionName}[\\s\\S]*?(?=\\d+\\.|$)`, 'i')
-      const match = content.match(regex)
-      if (match) {
-        return match[0].replace(sectionName, '').trim()
-      }
-      return `No ${sectionName.toLowerCase()} provided`
-    }
-
-    const sections = {
-      overview: parseSection(response, "1. Prospect Overview"),
-      context: parseSection(response, "2. Company Context"),
-      painPoints: parseSection(response, "3. Potential Pain Points"),
-      talkingPoints: parseSection(response, "4. Key Talking Points"),
-      questions: parseSection(response, "5. Questions to Ask"),
-      competitive: parseSection(response, "6. Competitive Insights"),
-    }
-
-    // Create brief object
-    const brief = {
-      id: `brief_${Date.now()}`,
-      userId: session.user.id,
-      prospectName,
-      companyName,
-      role,
-      meetingLink,
-      notes,
-      overview: sections.overview,
-      context: sections.context,
-      painPoints: sections.painPoints,
-      talkingPoints: sections.talkingPoints,
-      questions: sections.questions,
-      competitive: sections.competitive,
-      createdAt: new Date().toISOString(),
-    }
 
     // Store brief in memory
     storeBrief(brief)
+
+    console.log("Brief generated and stored successfully")
 
     return NextResponse.json({ 
       success: true, 
       brief: brief,
       message: "Brief generated successfully"
     })
+
   } catch (error) {
     console.error("Brief generation error:", error)
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request data", details: error.issues },
+        { status: 422 }
+      )
+    }
+
     return NextResponse.json(
-      { error: "Failed to generate brief" },
+      { 
+        error: "Internal server error", 
+        message: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     )
   }
 }
+
+// Import the getAllBriefsForUser function
+import { getAllBriefsForUser } from "@/lib/brief-storage"
