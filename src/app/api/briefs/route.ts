@@ -14,6 +14,27 @@ const briefSchema = z.object({
 // Rate limiting map
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
+function parseBriefResponse(response: string, prospectName: string, companyName: string, role: string) {
+  // Split response into sections
+  const sections = response.split(/\d+\.\s+/).filter(section => section.trim())
+  
+  const getSection = (index: number, fallback: string) => {
+    if (sections[index]) {
+      return sections[index].trim()
+    }
+    return fallback
+  }
+
+  return {
+    overview: getSection(0, `• ${prospectName} is the ${role} at ${companyName}\n• Key decision maker for sales opportunities\n• Professional with industry experience`),
+    context: getSection(1, `• ${companyName} is a growing company in their industry\n• Looking to improve their business processes\n• Potential for significant growth and expansion`),
+    painPoints: getSection(2, `• Manual processes slowing down operations\n• Lack of visibility into key metrics\n• Difficulty scaling current solutions\n• Need for better efficiency and automation`),
+    talkingPoints: getSection(3, `• Our solution addresses their specific challenges\n• Proven ROI with similar companies\n• Easy implementation and user adoption\n• Strong support and training programs`),
+    questions: getSection(4, `• What's your biggest challenge right now?\n• How do you currently handle this process?\n• What would success look like for you?\n• What's your timeline for making a decision?`),
+    competitive: getSection(5, `• Focus on our unique value proposition\n• Emphasize customer success stories\n• Highlight our superior support and training\n• Address any competitive concerns directly`)
+  }
+}
+
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
   const userLimit = rateLimitMap.get(userId)
@@ -213,20 +234,29 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
 • Emphasize customer success stories
 • Highlight our superior support and training
 • Address any competitive concerns directly`
-      
-      const sections = {
-        overview: "• " + prospectName + " is the " + role + " at " + companyName + "\n• Key decision maker for sales opportunities\n• Professional with industry experience",
-        context: "• " + companyName + " is a growing company in their industry\n• Looking to improve their business processes\n• Potential for significant growth and expansion",
-        painPoints: "• Manual processes slowing down operations\n• Lack of visibility into key metrics\n• Difficulty scaling current solutions\n• Need for better efficiency and automation",
-        talkingPoints: "• Our solution addresses their specific challenges\n• Proven ROI with similar companies\n• Easy implementation and user adoption\n• Strong support and training programs",
-        questions: "• What's your biggest challenge right now?\n• How do you currently handle this process?\n• What would success look like for you?\n• What's your timeline for making a decision?",
-        competitive: "• Focus on our unique value proposition\n• Emphasize customer success stories\n• Highlight our superior support and training\n• Address any competitive concerns directly"
-      }
-      
-      const brief = {
-        id: `brief_${Date.now()}`,
-        userId: session.user.id,
-        prospectName,
+
+      response = fallbackResponse
+    }
+
+    // Parse the response into sections
+    const sections = parseBriefResponse(response, prospectName, companyName, role)
+    
+    const brief = {
+      id: `brief_${Date.now()}`,
+      userId: session.user.id,
+      prospectName,
+      companyName,
+      role,
+      meetingLink,
+      notes,
+      overview: sections.overview,
+      context: sections.context,
+      painPoints: sections.painPoints,
+      talkingPoints: sections.talkingPoints,
+      questions: sections.questions,
+      competitive: sections.competitive,
+      createdAt: new Date().toISOString()
+    }
         companyName,
         role,
         meetingLink,

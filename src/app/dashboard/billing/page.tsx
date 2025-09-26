@@ -126,6 +126,21 @@ export default async function BillingPage() {
             </ul>
 
             <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: 'starter' })
+                  })
+                  const data = await response.json()
+                  if (data.checkoutUrl) {
+                    window.open(data.checkoutUrl, '_blank')
+                  }
+                } catch (error) {
+                  alert('Error starting checkout. Please try again.')
+                }
+              }}
               style={{
                 width: "100%",
                 padding: "0.75rem",
@@ -138,7 +153,7 @@ export default async function BillingPage() {
                 cursor: "pointer"
               }}
             >
-              {currentPlan === "Free" ? "Current Plan" : "Downgrade to Free"}
+              {currentPlan === "Free" ? "Current Plan" : "Upgrade to Starter"}
             </button>
           </div>
 
@@ -209,6 +224,21 @@ export default async function BillingPage() {
             </ul>
 
             <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: 'pro' })
+                  })
+                  const data = await response.json()
+                  if (data.checkoutUrl) {
+                    window.open(data.checkoutUrl, '_blank')
+                  }
+                } catch (error) {
+                  alert('Error starting checkout. Please try again.')
+                }
+              }}
               style={{
                 width: "100%",
                 padding: "0.75rem",
