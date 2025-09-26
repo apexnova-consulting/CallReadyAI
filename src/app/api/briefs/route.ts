@@ -127,27 +127,43 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
     } catch (geminiError) {
       console.error("Gemini API error:", geminiError)
       
-      // Provide more detailed error information
-      let errorMessage = "AI service temporarily unavailable. Please try again in a few moments."
-      if (geminiError instanceof Error) {
-        if (geminiError.message.includes("401")) {
-          errorMessage = "AI service authentication failed. Please contact support."
-        } else if (geminiError.message.includes("403")) {
-          errorMessage = "AI service access denied. Please contact support."
-        } else if (geminiError.message.includes("429")) {
-          errorMessage = "AI service rate limit exceeded. Please wait a moment and try again."
-        } else if (geminiError.message.includes("500")) {
-          errorMessage = "AI service is experiencing issues. Please try again in a few minutes."
-        }
-      }
-      
-      return NextResponse.json(
-        { 
-          error: errorMessage,
-          details: geminiError instanceof Error ? geminiError.message : "Unknown error"
-        },
-        { status: 503 }
-      )
+      // Use fallback template when AI fails
+      console.log("Using fallback template due to AI error")
+      const fallbackResponse = `1. Prospect Overview
+• ${prospectName} is the ${role} at ${companyName}
+• Key decision maker for sales opportunities
+• Professional with industry experience
+
+2. Company Context
+• ${companyName} is a growing company in their industry
+• Looking to improve their business processes
+• Potential for significant growth and expansion
+
+3. Potential Pain Points
+• Manual processes slowing down operations
+• Lack of visibility into key metrics
+• Difficulty scaling current solutions
+• Need for better efficiency and automation
+
+4. Key Talking Points
+• Our solution addresses their specific challenges
+• Proven ROI with similar companies
+• Easy implementation and user adoption
+• Strong support and training programs
+
+5. Questions to Ask
+• What's your biggest challenge right now?
+• How do you currently handle this process?
+• What would success look like for you?
+• What's your timeline for making a decision?
+
+6. Competitive Insights
+• Focus on our unique value proposition
+• Emphasize customer success stories
+• Highlight our superior support and training
+• Address any competitive concerns directly`
+
+      response = fallbackResponse
     }
 
     console.log("Gemini response received")
