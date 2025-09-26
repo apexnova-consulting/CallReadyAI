@@ -27,7 +27,7 @@ export async function POST(
     // If not found in server storage, try to get from request body (client can send it)
     if (!brief) {
       try {
-        const requestBody = await req.json()
+        const requestBody = await request.json()
         if (requestBody.brief) {
           brief = requestBody.brief
           console.log("Brief found in request body")

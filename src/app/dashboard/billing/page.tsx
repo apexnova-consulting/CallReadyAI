@@ -14,9 +14,14 @@ export default function BillingPage() {
       const stored = localStorage.getItem('callready_briefs')
       if (stored) {
         const briefs = JSON.parse(stored)
-        // For now, we'll use a mock user ID - in production this would come from session
-        const userBriefs = briefs.filter((brief: any) => brief.userId === "user_123")
-        setBriefsUsed(userBriefs.length)
+        // Get the most recent user ID from the briefs (since we don't have session in client component)
+        const userBriefs = briefs.filter((brief: any) => brief.userId)
+        if (userBriefs.length > 0) {
+          // Use the user ID from the first brief
+          const userId = userBriefs[0].userId
+          const userSpecificBriefs = briefs.filter((brief: any) => brief.userId === userId)
+          setBriefsUsed(userSpecificBriefs.length)
+        }
       }
     } catch (error) {
       console.error('Failed to load brief count:', error)
@@ -132,20 +137,9 @@ export default function BillingPage() {
             </ul>
 
             <button
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ plan: 'starter' })
-                  })
-                  const data = await response.json()
-                  if (data.checkoutUrl) {
-                    window.open(data.checkoutUrl, '_blank')
-                  }
-                } catch (error) {
-                  alert('Error starting checkout. Please try again.')
-                }
+              onClick={() => {
+                // For now, redirect to Pro plan since we only have one Stripe URL
+                window.open('https://buy.stripe.com/14AcMXbm5euv6D7aOsaVa00', '_blank')
               }}
               style={{
                 width: "100%",
@@ -230,20 +224,8 @@ export default function BillingPage() {
             </ul>
 
             <button
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ plan: 'pro' })
-                  })
-                  const data = await response.json()
-                  if (data.checkoutUrl) {
-                    window.open(data.checkoutUrl, '_blank')
-                  }
-                } catch (error) {
-                  alert('Error starting checkout. Please try again.')
-                }
+              onClick={() => {
+                window.open('https://buy.stripe.com/14AcMXbm5euv6D7aOsaVa00', '_blank')
               }}
               style={{
                 width: "100%",
@@ -359,6 +341,11 @@ export default function BillingPage() {
         
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
           <button
+            onClick={() => {
+              // For now, redirect to Stripe's customer portal
+              // In production, this would create a customer portal session
+              alert('Payment management will be available after upgrading to a paid plan. Please upgrade first.')
+            }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#f3f4f6",
@@ -373,6 +360,9 @@ export default function BillingPage() {
             Update Payment Method
           </button>
           <button
+            onClick={() => {
+              alert('Subscription management will be available after upgrading to a paid plan.')
+            }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#dc2626",
