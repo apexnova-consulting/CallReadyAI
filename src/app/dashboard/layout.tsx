@@ -110,6 +110,17 @@ export default function DashboardLayout({
                   Templates
                 </Link>
                 <Link 
+                  href="/dashboard/referrals"
+                  style={{ 
+                    color: "#6b7280", 
+                    textDecoration: "none",
+                    fontSize: "0.875rem",
+                    fontWeight: "500"
+                  }}
+                >
+                  Referrals
+                </Link>
+                <Link 
                   href="/dashboard/billing"
                   style={{ 
                     color: "#6b7280", 

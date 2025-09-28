@@ -100,6 +100,7 @@ export async function POST(
       addSection('Key Talking Points', brief.talkingPoints)
       addSection('Questions to Ask', brief.questions)
       addSection('Competitive Insights', brief.competitive)
+      addSection('Buyer Intent Signals', brief.buyerIntentSignals)
 
       if (brief.notes) {
         addSection('Additional Notes', brief.notes)
@@ -167,6 +168,9 @@ ${brief.questions}
 
 COMPETITIVE INSIGHTS
 ${brief.competitive}
+
+BUYER INTENT SIGNALS
+${brief.buyerIntentSignals}
 
 ${brief.notes ? `ADDITIONAL NOTES\n${brief.notes}` : ''}
 

@@ -15,6 +15,7 @@ export interface BriefData {
   talkingPoints: string
   questions: string
   competitive: string
+  buyerIntentSignals: string
   createdAt: string
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getSession } from "@/lib/auth"
 import { storeBrief, getAllBriefsForUser, BriefData } from "@/lib/brief-storage"
+import { buyerIntentService } from "@/lib/buyer-intent-service"
 
 const briefSchema = z.object({
   prospectName: z.string().min(1),
@@ -14,7 +15,7 @@ const briefSchema = z.object({
 // Rate limiting map
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
-function parseBriefResponse(response: string, prospectName: string, companyName: string, role: string) {
+function parseBriefResponse(response: string, prospectName: string, companyName: string, role: string, buyerIntentSignals: string) {
   // Split response into sections
   const sections = response.split(/\d+\.\s+/).filter(section => section.trim())
   
@@ -31,7 +32,8 @@ function parseBriefResponse(response: string, prospectName: string, companyName:
     painPoints: getSection(2, `• Manual processes slowing down operations\n• Lack of visibility into key metrics\n• Difficulty scaling current solutions\n• Need for better efficiency and automation`),
     talkingPoints: getSection(3, `• Our solution addresses their specific challenges\n• Proven ROI with similar companies\n• Easy implementation and user adoption\n• Strong support and training programs`),
     questions: getSection(4, `• What's your biggest challenge right now?\n• How do you currently handle this process?\n• What would success look like for you?\n• What's your timeline for making a decision?`),
-    competitive: getSection(5, `• Focus on our unique value proposition\n• Emphasize customer success stories\n• Highlight our superior support and training\n• Address any competitive concerns directly`)
+    competitive: getSection(5, `• Focus on our unique value proposition\n• Emphasize customer success stories\n• Highlight our superior support and training\n• Address any competitive concerns directly`),
+    buyerIntentSignals: getSection(6, buyerIntentSignals || 'No significant buyer intent signals detected')
   }
 }
 
@@ -91,8 +93,14 @@ export async function POST(req: Request) {
       )
     }
 
+    // Fetch buyer intent signals
+    console.log("Fetching buyer intent signals...")
+    const buyerIntentData = await buyerIntentService.getCompanyIntelligence(companyName)
+    const buyerIntentSignals = buyerIntentService.formatForAI(buyerIntentData)
+    console.log("Buyer intent signals:", buyerIntentSignals)
+
     // Generate AI brief with improved system prompt
-    const systemPrompt = `You are CallReady AI, an expert sales strategist. Given prospect details, output a concise, actionable Call Brief in bullet points. Use exactly these sections:
+    const systemPrompt = `You are CallReady AI, an expert sales strategist. Given prospect details and buyer intent signals, output a concise, actionable Call Brief in bullet points. Use exactly these sections:
 
 1. Prospect Overview
 2. Company Context  
@@ -100,14 +108,20 @@ export async function POST(req: Request) {
 4. Key Talking Points
 5. Questions to Ask
 6. Competitive Insights
+7. Buyer Intent Signals
 
-CRITICAL: Make each brief completely unique and tailored to the specific prospect, company, and role provided. Research and provide relevant insights about the company, industry, and role. Include specific pain points, talking points, and questions tailored to their situation. Use the company name, prospect name, role, and any additional notes to create a personalized brief. Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
+CRITICAL: Make each brief completely unique and tailored to the specific prospect, company, and role provided. Research and provide relevant insights about the company, industry, and role. Include specific pain points, talking points, and questions tailored to their situation. Use the company name, prospect name, role, buyer intent signals, and any additional notes to create a personalized brief. Keep it practical, short, and designed for a sales rep with 2 minutes to prep. Each section should have 3-5 bullet points maximum.`
 
     const userPrompt = `Prospect: ${prospectName}
 Company: ${companyName}
 Role: ${role}
 ${meetingLink ? `Meeting Link: ${meetingLink}` : ""}
-${notes ? `Additional Notes: ${notes}` : ""}`
+${notes ? `Additional Notes: ${notes}` : ""}
+
+BUYER INTENT SIGNALS:
+${buyerIntentSignals}
+
+Use these buyer intent signals to inform pain points, talking points, and questions. For example, if they recently raised funding, focus on growth and scaling challenges. If they're hiring, discuss team efficiency and productivity solutions.`
 
     console.log("Calling Google Gemini API...")
     
@@ -250,7 +264,7 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
     }
 
     // Parse the response into sections
-    const sections = parseBriefResponse(response, prospectName, companyName, role)
+    const sections = parseBriefResponse(response, prospectName, companyName, role, buyerIntentSignals)
     
     const brief = {
       id: `brief_${Date.now()}`,
@@ -266,6 +280,7 @@ ${notes ? `Additional Notes: ${notes}` : ""}`
       talkingPoints: sections.talkingPoints,
       questions: sections.questions,
       competitive: sections.competitive,
+      buyerIntentSignals: sections.buyerIntentSignals,
       createdAt: new Date().toISOString()
     }
 
