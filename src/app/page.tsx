@@ -154,7 +154,7 @@ export default function HomePage() {
             }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚡</div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
-                Lightning Fast
+                Lightning Fast Briefs
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
                 Generate comprehensive sales briefs in under 30 seconds. 
@@ -168,13 +168,29 @@ export default function HomePage() {
               backgroundColor: '#f8fafc',
               border: '1px solid #e2e8f0'
             }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🤖</div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
-                AI-Powered Insights
+                AI Call Companion
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-                Get strategic talking points, pain points, and questions 
-                tailored to each prospect and their industry.
+                Live AI assistant during calls with real-time transcription, 
+                talking points, and follow-up suggestions.
+              </p>
+            </div>
+
+            <div style={{ 
+              padding: '2rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
+                Buyer Intent Signals
+              </h3>
+              <p style={{ color: '#64748b', lineHeight: '1.6' }}>
+                Real-time company intelligence including funding signals, 
+                hiring trends, and tech stack changes.
               </p>
             </div>
 
@@ -186,11 +202,43 @@ export default function HomePage() {
             }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
-                Professional Format
+                Advanced Analytics
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-                Export as PDF, email to your team, or copy to clipboard. 
-                Professional briefs ready for any sales call.
+                Track talking point effectiveness, industry performance, 
+                and optimize your sales approach with data-driven insights.
+              </p>
+            </div>
+
+            <div style={{ 
+              padding: '2rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔗</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
+                CRM Integration
+              </h3>
+              <p style={{ color: '#64748b', lineHeight: '1.6' }}>
+                Export briefs directly to HubSpot, Salesforce, and Pipedrive. 
+                Seamless workflow integration.
+              </p>
+            </div>
+
+            <div style={{ 
+              padding: '2rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
+                Referral Rewards
+              </h3>
+              <p style={{ color: '#64748b', lineHeight: '1.6' }}>
+                Earn 5 free briefs for every successful referral. 
+                Grow your network while growing your briefs.
               </p>
             </div>
           </div>
@@ -237,7 +285,8 @@ export default function HomePage() {
                 Enter Prospect Details
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-                Simply input the prospect's name, company, role, and any notes you have.
+                Input prospect info and our AI gathers buyer intent signals, 
+                competitive insights, and company intelligence.
               </p>
             </div>
 
@@ -260,7 +309,8 @@ export default function HomePage() {
                 AI Generates Brief
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-                Our AI analyzes the data and creates a comprehensive sales call brief in seconds.
+                Get comprehensive briefs with talking points, pain points, 
+                questions, and strategic insights in under 30 seconds.
               </p>
             </div>
 
@@ -280,10 +330,35 @@ export default function HomePage() {
                 3
               </div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
-                Close More Deals
+                AI Call Companion
               </h3>
               <p style={{ color: '#64748b', lineHeight: '1.6' }}>
-                Walk into every sales call prepared with strategic insights and talking points.
+                Use live AI assistant during calls with real-time transcription, 
+                talking points, and follow-up suggestions.
+              </p>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                width: '80px', 
+                height: '80px', 
+                backgroundColor: '#667eea', 
+                borderRadius: '50%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: '2rem',
+                color: 'white',
+                margin: '0 auto 1rem'
+              }}>
+                4
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#1e293b' }}>
+                Track & Optimize
+              </h3>
+              <p style={{ color: '#64748b', lineHeight: '1.6' }}>
+                Export to CRM, track analytics, and optimize your approach 
+                with data-driven insights for better results.
               </p>
             </div>
           </div>
@@ -308,9 +383,9 @@ export default function HomePage() {
           
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
             gap: '2rem',
-            maxWidth: '1000px',
+            maxWidth: '1200px',
             margin: '0 auto'
           }}>
             {/* Free Plan */}
@@ -351,6 +426,45 @@ export default function HomePage() {
               </Link>
             </div>
 
+            {/* Starter Plan */}
+            <div style={{ 
+              padding: '2rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#f8fafc',
+              border: '2px solid #e2e8f0',
+              position: 'relative'
+            }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem', color: '#1e293b' }}>
+                Starter
+              </h3>
+              <div style={{ marginBottom: '1rem' }}>
+                <span style={{ fontSize: '3rem', fontWeight: 'bold', color: '#667eea' }}>$19.99</span>
+                <span style={{ color: '#64748b' }}>/month</span>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, marginBottom: '2rem' }}>
+                <li style={{ padding: '0.5rem 0', color: '#64748b' }}>✓ 25 AI-generated briefs</li>
+                <li style={{ padding: '0.5rem 0', color: '#64748b' }}>✓ PDF export</li>
+                <li style={{ padding: '0.5rem 0', color: '#64748b' }}>✓ Email sharing</li>
+                <li style={{ padding: '0.5rem 0', color: '#64748b' }}>✓ Basic analytics</li>
+                <li style={{ padding: '0.5rem 0', color: '#64748b' }}>✓ Email support</li>
+              </ul>
+              <button 
+                onClick={() => window.open('https://buy.stripe.com/eVq14f9dXdqraTnf4IaVa01', '_blank')}
+                style={{ 
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Start Starter Plan
+              </button>
+            </div>
+
             {/* Pro Plan */}
             <div style={{ 
               padding: '2rem',
@@ -383,9 +497,10 @@ export default function HomePage() {
               </div>
               <ul style={{ listStyle: 'none', padding: 0, marginBottom: '2rem' }}>
                 <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ 200 AI-generated briefs</li>
-                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ PDF export</li>
-                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ Email sharing</li>
-                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ All templates</li>
+                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ AI Call Companion</li>
+                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ Buyer Intent Signals</li>
+                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ Advanced Analytics</li>
+                <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ CRM Integration</li>
                 <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ Priority support</li>
                 <li style={{ padding: '0.5rem 0', opacity: 0.9 }}>✓ Custom branding</li>
               </ul>
