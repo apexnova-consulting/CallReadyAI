@@ -98,26 +98,24 @@ function generateReferralCode(userId: string): string {
 }
 
 function storeReferral(referral: any) {
-  // In-memory storage (in production, save to database)
-  const referrals = JSON.parse(localStorage.getItem('callready_referrals') || '[]')
-  referrals.push(referral)
-  localStorage.setItem('callready_referrals', JSON.stringify(referrals))
+  // Store referral in server-side memory (in production, save to database)
+  referrals.set(referral.id, referral)
 }
 
 function getUserReferrals(userId: string) {
-  // Get referrals from in-memory storage
-  const referrals = JSON.parse(localStorage.getItem('callready_referrals') || '[]')
-  return referrals.filter((ref: any) => ref.referrerId === userId)
+  // Get referrals from server-side storage
+  const userReferrals = Array.from(referrals.values()).filter((ref: any) => ref.referrerId === userId)
+  return userReferrals
 }
 
 function getUserReferralStats(userId: string) {
-  const referrals = getUserReferrals(userId)
-  const completed = referrals.filter((ref: any) => ref.status === 'completed').length
-  const pending = referrals.filter((ref: any) => ref.status === 'pending').length
+  const userReferrals = getUserReferrals(userId)
+  const completed = userReferrals.filter((ref: any) => ref.status === 'completed').length
+  const pending = userReferrals.filter((ref: any) => ref.status === 'pending').length
   const totalBonusBriefs = completed * 5 // 5 briefs per completed referral
 
   return {
-    totalReferrals: referrals.length,
+    totalReferrals: userReferrals.length,
     completedReferrals: completed,
     pendingReferrals: pending,
     bonusBriefsEarned: totalBonusBriefs,
@@ -126,10 +124,12 @@ function getUserReferralStats(userId: string) {
 }
 
 async function sendReferralEmail(referral: any) {
-  // In production, use Resend API to send referral email
-  console.log(`Sending referral email to ${referral.refereeEmail}`)
-  
-  const emailContent = `
+  try {
+    // Use Resend API to send referral email
+    const { Resend } = await import('resend')
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    
+    const emailContent = `
 Hi ${referral.refereeName || 'there'}!
 
 ${referral.referrerEmail} has invited you to try CallReady AI - the AI-powered sales call brief generator that helps sales professionals close more deals.
@@ -141,16 +141,32 @@ ${referral.referrerEmail} has invited you to try CallReady AI - the AI-powered s
 • Professional PDF exports
 
 Use this referral link to get started:
-${process.env.NEXT_PUBLIC_BASE_URL}/register?ref=${referral.referralCode}
+${process.env.NEXT_PUBLIC_BASE_URL || 'https://callready.ai'}/register?ref=${referral.referralCode}
 
 Ready to close more deals with AI-powered insights?
 
 Best regards,
 The CallReady AI Team
-  `.trim()
+    `.trim()
 
-  // In production, implement actual email sending
-  console.log("Referral email content:", emailContent)
+    const { data, error } = await resend.emails.send({
+      from: 'CallReady AI <noreply@callready.ai>',
+      to: [referral.refereeEmail],
+      subject: `${referral.referrerEmail} invited you to try CallReady AI`,
+      html: emailContent.replace(/\n/g, '<br>'),
+    })
+
+    if (error) {
+      console.error('Failed to send referral email:', error)
+      throw new Error('Failed to send referral email')
+    }
+
+    console.log('Referral email sent successfully:', data)
+  } catch (error) {
+    console.error('Referral email error:', error)
+    // Don't throw error to prevent referral creation failure
+    // Just log it for debugging
+  }
 }
 
 // In-memory referral storage (in production, use database)

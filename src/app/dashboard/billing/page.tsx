@@ -91,7 +91,7 @@ export default function BillingPage() {
         </h2>
         <div style={{ 
           display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", 
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
           gap: "1.5rem" 
         }}>
           {/* Free Plan */}
@@ -138,8 +138,8 @@ export default function BillingPage() {
 
             <button
               onClick={() => {
-                // For now, redirect to Pro plan since we only have one Stripe URL
-                window.open('https://buy.stripe.com/14AcMXbm5euv6D7aOsaVa00', '_blank')
+                // Redirect to Starter plan
+                window.open('https://buy.stripe.com/eVq14f9dXdqraTnf4IaVa01', '_blank')
               }}
               style={{
                 width: "100%",
@@ -154,6 +154,73 @@ export default function BillingPage() {
               }}
             >
               {currentPlan === "Free" ? "Current Plan" : "Upgrade to Starter"}
+            </button>
+          </div>
+
+          {/* Starter Plan */}
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: "0.75rem",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+            padding: "2rem",
+            border: "1px solid #e5e7eb",
+            position: "relative"
+          }}>
+            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+              <h3 style={{ fontSize: "1.25rem", fontWeight: "600", marginBottom: "0.5rem" }}>
+                Starter
+              </h3>
+              <div style={{ marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "3rem", fontWeight: "bold", color: "#667eea" }}>
+                  $19.99
+                </span>
+                <span style={{ color: "#6b7280" }}>/month</span>
+              </div>
+              <p style={{ color: "#6b7280", fontSize: "0.875rem" }}>
+                25 briefs per month
+              </p>
+            </div>
+
+            <ul style={{ marginBottom: "2rem", paddingLeft: "0", listStyle: "none" }}>
+              <li style={{ display: "flex", alignItems: "center", marginBottom: "0.75rem", fontSize: "0.875rem", color: "#374151" }}>
+                <span style={{ color: "#22c55e", marginRight: "0.5rem" }}>✓</span>
+                25 AI-generated briefs per month
+              </li>
+              <li style={{ display: "flex", alignItems: "center", marginBottom: "0.75rem", fontSize: "0.875rem", color: "#374151" }}>
+                <span style={{ color: "#22c55e", marginRight: "0.5rem" }}>✓</span>
+                PDF export
+              </li>
+              <li style={{ display: "flex", alignItems: "center", marginBottom: "0.75rem", fontSize: "0.875rem", color: "#374151" }}>
+                <span style={{ color: "#22c55e", marginRight: "0.5rem" }}>✓</span>
+                Email sharing
+              </li>
+              <li style={{ display: "flex", alignItems: "center", marginBottom: "0.75rem", fontSize: "0.875rem", color: "#374151" }}>
+                <span style={{ color: "#22c55e", marginRight: "0.5rem" }}>✓</span>
+                Basic analytics
+              </li>
+              <li style={{ display: "flex", alignItems: "center", marginBottom: "0.75rem", fontSize: "0.875rem", color: "#374151" }}>
+                <span style={{ color: "#22c55e", marginRight: "0.5rem" }}>✓</span>
+                Email support
+              </li>
+            </ul>
+
+            <button
+              onClick={() => {
+                window.open('https://buy.stripe.com/eVq14f9dXdqraTnf4IaVa01', '_blank')
+              }}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                backgroundColor: currentPlan === "Starter" ? "#22c55e" : "#667eea",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                fontSize: "0.875rem",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}
+            >
+              {currentPlan === "Starter" ? "Current Plan" : "Upgrade to Starter"}
             </button>
           </div>
 

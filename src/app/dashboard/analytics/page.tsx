@@ -52,55 +52,55 @@ export default function AnalyticsDashboard() {
 
   const loadAnalytics = async () => {
     try {
-      // In production, this would fetch from analytics API
-      const mockAnalytics: AnalyticsData = {
-        briefsGenerated: 47,
-        totalBriefs: 156,
-        mostUsedTalkingPoints: [
-          { point: "ROI and cost savings", count: 23, successRate: 78 },
-          { point: "Easy implementation", count: 19, successRate: 82 },
-          { point: "Proven results", count: 17, successRate: 76 },
-          { point: "24/7 support", count: 15, successRate: 85 },
-          { point: "Scalable solution", count: 12, successRate: 79 }
-        ],
-        industryBreakdown: [
-          { industry: "Technology", count: 45, avgSuccessRate: 82 },
-          { industry: "Healthcare", count: 32, avgSuccessRate: 78 },
-          { industry: "Finance", count: 28, avgSuccessRate: 85 },
-          { industry: "Manufacturing", count: 24, avgSuccessRate: 76 },
-          { industry: "Retail", count: 18, avgSuccessRate: 80 }
-        ],
-        monthlyTrends: [
-          { month: "Jan", briefs: 12, successRate: 75 },
-          { month: "Feb", briefs: 18, successRate: 82 },
-          { month: "Mar", briefs: 22, successRate: 79 },
-          { month: "Apr", briefs: 19, successRate: 85 },
-          { month: "May", briefs: 25, successRate: 81 },
-          { month: "Jun", briefs: 28, successRate: 83 }
-        ],
-        topPainPoints: [
-          { painPoint: "Manual processes", frequency: 34, industry: "Technology" },
-          { painPoint: "Lack of visibility", frequency: 28, industry: "Healthcare" },
-          { painPoint: "Scaling challenges", frequency: 25, industry: "Finance" },
-          { painPoint: "Integration issues", frequency: 22, industry: "Manufacturing" },
-          { painPoint: "Cost management", frequency: 19, industry: "Retail" }
-        ],
-        buyerIntentEffectiveness: {
-          fundingSignals: 89,
-          hiringSignals: 76,
-          techSignals: 82,
-          newsSignals: 71
-        },
-        companionModeUsage: {
-          callsCompleted: 23,
-          avgCallDuration: 28, // minutes
-          followUpEmailsGenerated: 23
-        }
+      // Fetch real analytics data from API
+      const response = await fetch('/api/analytics')
+      if (response.ok) {
+        const data = await response.json()
+        setAnalytics(data)
+      } else {
+        // If no data available, set empty state
+        setAnalytics({
+          briefsGenerated: 0,
+          totalBriefs: 0,
+          mostUsedTalkingPoints: [],
+          industryBreakdown: [],
+          monthlyTrends: [],
+          topPainPoints: [],
+          buyerIntentEffectiveness: {
+            fundingSignals: 0,
+            hiringSignals: 0,
+            techSignals: 0,
+            newsSignals: 0
+          },
+          companionModeUsage: {
+            callsCompleted: 0,
+            avgCallDuration: 0,
+            followUpEmailsGenerated: 0
+          }
+        })
       }
-      
-      setAnalytics(mockAnalytics)
     } catch (error) {
       console.error('Failed to load analytics:', error)
+      // Set empty state on error
+      setAnalytics({
+        briefsGenerated: 0,
+        totalBriefs: 0,
+        mostUsedTalkingPoints: [],
+        industryBreakdown: [],
+        monthlyTrends: [],
+        topPainPoints: [],
+        buyerIntentEffectiveness: {
+          fundingSignals: 0,
+          hiringSignals: 0,
+          techSignals: 0,
+          newsSignals: 0
+        },
+        companionModeUsage: {
+          callsCompleted: 0,
+          avgCallDuration: 0,
+          followUpEmailsGenerated: 0
+        }
+      })
     } finally {
       setIsLoading(false)
     }
@@ -118,6 +118,131 @@ export default function AnalyticsDashboard() {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>No analytics data available</div>
+      </div>
+    )
+  }
+
+  // Check if user has no data (new user)
+  const hasNoData = analytics.briefsGenerated === 0 && analytics.companionModeUsage.callsCompleted === 0
+
+  if (hasNoData) {
+    return (
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        {/* Header */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1e293b' }}>
+            📊 Analytics Dashboard
+          </h1>
+          <p style={{ color: '#6b7280' }}>
+            Track your sales performance and optimize your approach
+          </p>
+        </div>
+
+        {/* Empty State */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '0.75rem',
+          padding: '3rem',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📈</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1rem', color: '#374151' }}>
+            Start Generating Briefs to See Analytics
+          </h2>
+          <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '2rem', maxWidth: '500px', margin: '0 auto 2rem' }}>
+            Your analytics dashboard will populate with insights as you create briefs, use companion mode, and track your sales performance.
+          </p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <a
+              href="/dashboard/new"
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#667eea',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '600'
+              }}
+            >
+              Create Your First Brief
+            </a>
+            <a
+              href="/dashboard"
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                textDecoration: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '600'
+              }}
+            >
+              View Dashboard
+            </a>
+          </div>
+        </div>
+
+        {/* Preview Cards */}
+        <div style={{ marginTop: '2rem' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: '#374151', textAlign: 'center' }}>
+            What You'll See Here
+          </h3>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gap: '1rem' 
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+              opacity: 0.6
+            }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#374151' }}>
+                📊 Key Metrics
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                Track briefs generated, companion calls, call duration, and follow-ups
+              </p>
+            </div>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+              opacity: 0.6
+            }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#374151' }}>
+                🎯 Talking Points Analysis
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                See which talking points are most effective for your prospects
+              </p>
+            </div>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e5e7eb',
+              opacity: 0.6
+            }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#374151' }}>
+                🔍 Buyer Intent Signals
+              </h4>
+              <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                Track effectiveness of funding, hiring, and tech stack signals
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
