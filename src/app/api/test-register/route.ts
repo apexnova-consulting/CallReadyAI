@@ -37,3 +37,4 @@ export async function POST(req: Request) {
     await db.$disconnect()
   }
 }
+

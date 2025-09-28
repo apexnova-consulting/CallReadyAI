@@ -121,6 +121,17 @@ export default function DashboardLayout({
                   Referrals
                 </Link>
                 <Link 
+                  href="/dashboard/analytics"
+                  style={{ 
+                    color: "#6b7280", 
+                    textDecoration: "none",
+                    fontSize: "0.875rem",
+                    fontWeight: "500"
+                  }}
+                >
+                  Analytics
+                </Link>
+                <Link 
                   href="/dashboard/billing"
                   style={{ 
                     color: "#6b7280", 

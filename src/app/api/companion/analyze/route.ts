@@ -148,3 +148,4 @@ function parseCompanionResponse(response: string) {
     ]
   }
 }
+

@@ -111,3 +111,4 @@ function getUserReferralStats(userId: string) {
     bonusBriefsEarned: totalBonusBriefs
   }
 }
+

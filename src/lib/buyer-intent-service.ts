@@ -352,3 +352,4 @@ class BuyerIntentService {
 
 export const buyerIntentService = new BuyerIntentService()
 export type { BuyerIntentData }
+
