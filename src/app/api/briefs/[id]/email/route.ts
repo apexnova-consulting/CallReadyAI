@@ -3,7 +3,8 @@ import { getSession } from "@/lib/auth"
 import { getBrief } from "@/lib/brief-storage"
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
 
 export async function POST(
   request: Request,
@@ -144,6 +145,16 @@ export async function POST(
         </body>
       </html>
     `
+
+    // Initialize Resend only if API key is available
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json(
+        { error: "Email service not configured" },
+        { status: 503 }
+      )
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({

@@ -125,6 +125,12 @@ function getUserReferralStats(userId: string) {
 
 async function sendReferralEmail(referral: any) {
   try {
+    // Check if Resend API key is available
+    if (!process.env.RESEND_API_KEY) {
+      console.log('Resend API key not available, skipping email send')
+      return
+    }
+
     // Use Resend API to send referral email
     const { Resend } = await import('resend')
     const resend = new Resend(process.env.RESEND_API_KEY)
