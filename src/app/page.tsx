@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import "./mobile.css"
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -12,7 +13,7 @@ export default function HomePage() {
       backgroundColor: '#ffffff'
     }}>
       {/* Navigation */}
-      <nav style={{ 
+      <nav className="nav-container" style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
@@ -24,7 +25,7 @@ export default function HomePage() {
         zIndex: 1000
       }}>
         {/* Logo */}
-        <h1 style={{ 
+        <h1 className="logo" style={{ 
           fontSize: '1.25rem', 
           fontWeight: 'bold', 
           color: '#667eea',
@@ -34,11 +35,10 @@ export default function HomePage() {
         </h1>
 
         {/* Desktop Navigation */}
-        <div style={{ 
+        <div className="desktop-nav" style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: '2rem',
-          '@media (max-width: 768px)': { display: 'none' }
+          gap: '2rem'
         }}>
           <div style={{ display: 'flex', gap: '2rem' }}>
             <a href="#features" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>Features</a>
@@ -77,9 +77,8 @@ export default function HomePage() {
         </div>
 
         {/* Mobile Hamburger Menu */}
-        <div style={{ 
-          display: 'none',
-          '@media (max-width: 768px)': { display: 'block' }
+        <div className="mobile-nav" style={{ 
+          display: 'none'
         }}>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -117,27 +116,8 @@ export default function HomePage() {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div style={{
-          position: 'fixed',
-          top: '0',
-          left: '0',
-          right: '0',
-          bottom: '0',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 999,
-          display: 'block',
-          '@media (min-width: 769px)': { display: 'none' }
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '0',
-            right: '0',
-            width: '280px',
-            height: '100%',
-            backgroundColor: 'white',
-            padding: '2rem 1rem',
-            boxShadow: '-4px 0 6px rgba(0, 0, 0, 0.1)'
-          }}>
+        <div className="mobile-menu-overlay">
+          <div className="mobile-menu-panel">
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -247,7 +227,7 @@ export default function HomePage() {
         background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h1 style={{ 
+          <h1 className="hero-title" style={{ 
             fontSize: '2.5rem', 
             fontWeight: 'bold', 
             color: '#1e293b',
@@ -256,7 +236,7 @@ export default function HomePage() {
           }}>
             AI-Powered Sales Call Briefs
           </h1>
-          <p style={{ 
+          <p className="hero-subtitle" style={{ 
             fontSize: '1rem', 
             color: '#64748b', 
             marginBottom: '2rem',
@@ -265,7 +245,7 @@ export default function HomePage() {
             Generate comprehensive, actionable sales call briefs in seconds. 
             Never go into a sales call unprepared again.
           </p>
-          <div style={{ 
+          <div className="hero-buttons" style={{ 
             display: 'flex', 
             gap: '1rem', 
             justifyContent: 'center', 
@@ -275,6 +255,7 @@ export default function HomePage() {
           }}>
             <Link 
               href="/register"
+              className="hero-button"
               style={{ 
                 padding: '1rem 2rem', 
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
@@ -290,7 +271,7 @@ export default function HomePage() {
             >
               Start Free Trial
             </Link>
-            <button style={{ 
+            <button className="hero-button" style={{ 
               padding: '1rem 2rem', 
               backgroundColor: 'white', 
               color: '#667eea', 
@@ -331,12 +312,12 @@ export default function HomePage() {
             Why Choose CallReady AI?
           </h2>
           
-          <div style={{ 
+          <div className="features-grid" style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
             gap: '1.5rem' 
           }}>
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -352,7 +333,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -368,7 +349,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -384,7 +365,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -400,7 +381,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -416,7 +397,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div style={{ 
+            <div className="feature-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -451,7 +432,7 @@ export default function HomePage() {
             How It Works
           </h2>
           
-          <div style={{ 
+          <div className="how-it-works-grid" style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
             gap: '1.5rem' 
@@ -571,7 +552,7 @@ export default function HomePage() {
             Simple, Transparent Pricing
           </h2>
           
-          <div style={{ 
+          <div className="pricing-grid" style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
             gap: '1.5rem',
@@ -579,7 +560,7 @@ export default function HomePage() {
             margin: '0 auto'
           }}>
             {/* Free Plan */}
-            <div style={{ 
+            <div className="pricing-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -618,7 +599,7 @@ export default function HomePage() {
             </div>
 
             {/* Starter Plan */}
-            <div style={{ 
+            <div className="pricing-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
@@ -658,7 +639,7 @@ export default function HomePage() {
             </div>
 
             {/* Pro Plan */}
-            <div style={{ 
+            <div className="pricing-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#667eea',
@@ -716,7 +697,7 @@ export default function HomePage() {
             </div>
 
             {/* Enterprise Plan */}
-            <div style={{ 
+            <div className="pricing-card" style={{ 
               padding: '1.5rem',
               borderRadius: '0.75rem',
               backgroundColor: '#f8fafc',
