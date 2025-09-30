@@ -105,3 +105,4 @@ export function deleteTemplate(templateId: string) {
   console.log(`Template deleted: ${templateId}`)
 }
 
+
