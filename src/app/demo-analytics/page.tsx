@@ -417,25 +417,50 @@ export default function DemoAnalyticsDashboard() {
         <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', color: '#374151' }}>
           📈 Monthly Growth Trends
         </h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', height: '250px', padding: '1rem 0' }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'end', 
+          height: '300px', 
+          padding: '2rem 1rem 1rem 1rem',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
           {demoAnalytics.monthlyTrends.map((trend, index) => (
-            <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+            <div key={index} style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              flex: 1,
+              position: 'relative',
+              minHeight: '250px'
+            }}>
               <div style={{ 
                 backgroundColor: '#667eea', 
                 width: '40px', 
-                height: `${(trend.briefs / 30) * 180}px`, 
+                height: `${Math.min((trend.briefs / 30) * 150, 150)}px`, 
                 borderRadius: '8px 8px 0 0',
                 marginBottom: '1rem',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                maxHeight: '150px'
               }} />
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: '600' }}>
-                {trend.month}
-              </div>
-              <div style={{ fontSize: '1rem', fontWeight: '700', color: '#374151', marginBottom: '0.25rem' }}>
-                {trend.briefs}
-              </div>
-              <div style={{ fontSize: '0.875rem', color: '#22c55e', fontWeight: '600' }}>
-                {trend.successRate}%
+              <div style={{ 
+                position: 'absolute',
+                bottom: '0',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                textAlign: 'center',
+                width: '100%'
+              }}>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: '600' }}>
+                  {trend.month}
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: '700', color: '#374151', marginBottom: '0.25rem' }}>
+                  {trend.briefs}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#22c55e', fontWeight: '600' }}>
+                  {trend.successRate}%
+                </div>
               </div>
             </div>
           ))}
