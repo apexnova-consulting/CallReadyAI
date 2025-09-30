@@ -469,31 +469,60 @@ export default function DemoAnalyticsDashboard() {
 
       {/* AI-Powered Insights */}
       <div style={{
-        backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         borderRadius: '1rem',
         padding: '2rem',
-        color: 'white',
         marginBottom: '2rem'
       }}>
-        <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }}>
+        <h3 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: '600', 
+          marginBottom: '1.5rem',
+          color: '#ffffff',
+          textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
+        }}>
           💡 AI-Powered Insights & Recommendations
         </h3>
         <div style={{ fontSize: '1rem', lineHeight: '1.8' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
             <div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem' }}>🎯 Performance Highlights</h4>
-              <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-                <li><strong>Top Performing Talking Point:</strong> "ROI within 6 months" has 91% success rate</li>
-                <li><strong>Best Industry:</strong> Finance industry shows 87% success rate</li>
-                <li><strong>Most Effective Signal:</strong> Funding signals are 89% effective</li>
+              <h4 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                marginBottom: '0.75rem',
+                color: '#ffffff',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
+              }}>🎯 Performance Highlights</h4>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#ffffff' }}>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>Top Performing Talking Point:</strong> "ROI within 6 months" has 91% success rate
+                </li>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>Best Industry:</strong> Finance industry shows 87% success rate
+                </li>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>Most Effective Signal:</strong> Funding signals are 89% effective
+                </li>
               </ul>
             </div>
             <div>
-              <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem' }}>📈 Growth Opportunities</h4>
-              <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-                <li><strong>Healthcare Expansion:</strong> 78% success rate suggests room for improvement</li>
-                <li><strong>News Signal Optimization:</strong> 71% effectiveness can be enhanced</li>
-                <li><strong>Companion Mode:</strong> 28min avg duration indicates strong engagement</li>
+              <h4 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                marginBottom: '0.75rem',
+                color: '#ffffff',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
+              }}>📈 Growth Opportunities</h4>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#ffffff' }}>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>Healthcare Expansion:</strong> 78% success rate suggests room for improvement
+                </li>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>News Signal Optimization:</strong> 71% effectiveness can be enhanced
+                </li>
+                <li style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)' }}>
+                  <strong>Companion Mode:</strong> 28min avg duration indicates strong engagement
+                </li>
               </ul>
             </div>
           </div>
