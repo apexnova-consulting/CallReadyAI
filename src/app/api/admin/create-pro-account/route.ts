@@ -99,10 +99,15 @@ export async function POST(req: Request) {
       })
     }
 
+    // ALWAYS ensure user is in in-memory store (critical for login)
+    const hashedPassword = await bcrypt.hash(password, 12)
+    const { addUserToMemory } = await import("@/lib/auth")
+    
     // Create new user in database first (so we get the correct ID)
     let user
+    let dbUserId = null
+    
     try {
-      const hashedPassword = await bcrypt.hash(password, 12)
       const referralCode = `REF${Math.random().toString(36).substring(2, 9).toUpperCase()}`
 
       const dbUser = await db.user.create({
@@ -113,6 +118,8 @@ export async function POST(req: Request) {
           referralCode,
         }
       })
+
+      dbUserId = dbUser.id
 
       // Create Pro subscription
       await db.subscription.create({
@@ -126,25 +133,30 @@ export async function POST(req: Request) {
         }
       })
 
-      // Add to in-memory store with database user ID
-      const { addUserToMemory } = await import("@/lib/auth")
-      addUserToMemory(
-        email,
-        dbUser.id,
-        hashedPassword,
-        userName
-      )
-
       user = {
         id: dbUser.id,
         email: dbUser.email || email,
         name: dbUser.name || userName
       }
     } catch (dbError) {
-      console.log("Database not available, creating in-memory user only")
-      // Fallback to in-memory only
-      user = await createUser(email, password, userName)
+      console.log("Database not available, using in-memory user only")
+      // Use a stable user ID based on email
+      dbUserId = `user_${Buffer.from(email).toString('base64').substring(0, 16)}`
+      user = {
+        id: dbUserId,
+        email: email,
+        name: userName
+      }
     }
+    
+    // CRITICAL: Always add to in-memory store (this is what login uses)
+    addUserToMemory(
+      email,
+      dbUserId || user.id,
+      hashedPassword,
+      userName
+    )
+    console.log("User added to in-memory store:", email)
 
     // Get the actual database user ID if available
     let finalUserId = user.id
