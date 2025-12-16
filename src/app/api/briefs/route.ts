@@ -87,24 +87,29 @@ export async function POST(req: Request) {
     
     let briefsLimit = 5 // Default to Free tier
     
-    try {
-      // Try to find user in database by email or ID
-      const dbUser = await db.user.findFirst({
-        where: {
-          OR: [
-            { email: session.user.email },
-            { id: session.user.id }
-          ]
-        },
-        include: { subscription: true }
-      })
+    // HARDCODED: Pro account for shuchi831@gmail.com
+    if (session.user.email === "shuchi831@gmail.com" || session.user.id === "user_shuchi_pro") {
+      briefsLimit = 200
+    } else {
+      try {
+        // Try to find user in database by email or ID
+        const dbUser = await db.user.findFirst({
+          where: {
+            OR: [
+              { email: session.user.email },
+              { id: session.user.id }
+            ]
+          },
+          include: { subscription: true }
+        })
 
-      if (dbUser?.subscription) {
-        briefsLimit = dbUser.subscription.briefsLimit || 5
+        if (dbUser?.subscription) {
+          briefsLimit = dbUser.subscription.briefsLimit || 5
+        }
+      } catch (error) {
+        console.error("Error fetching subscription for brief limit:", error)
+        // Fall back to default limit
       }
-    } catch (error) {
-      console.error("Error fetching subscription for brief limit:", error)
-      // Fall back to default limit
     }
 
     if (briefsUsed >= briefsLimit) {
