@@ -3,10 +3,24 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
+interface Speaker {
+  id: string
+  name: string
+  role?: string
+  quotes?: string[]
+}
+
+interface TranscriptSegment {
+  speaker: string
+  text: string
+}
+
 interface MeetingNotesResult {
   summary: string
   keyPoints: string[]
   actionItems: string[]
+  speakers?: Speaker[]
+  transcriptBySpeaker?: TranscriptSegment[]
   followUpEmail: {
     subject: string
     body: string
@@ -305,15 +319,34 @@ export default function MeetingNotesPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to process meeting notes')
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch (e) {
+          // If response isn't JSON, get text
+          const errorText = await response.text()
+          throw new Error(`Server error (${response.status}): ${errorText || 'Unknown error'}`)
+        }
+        throw new Error(errorData.error || errorData.details || 'Failed to process meeting notes')
       }
 
       const data = await response.json()
+      
+      // Check if we got an error in the response
+      if (data.error) {
+        throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
+      }
+      
       setResult(data)
     } catch (error: any) {
       console.error('Error processing transcript:', error)
-      setError(error.message || 'Failed to process meeting notes. Please try again.')
+      const errorMessage = error.message || 'Failed to process meeting notes. Please try again.'
+      setError(errorMessage)
+      
+      // Show more detailed error in console for debugging
+      if (error.response) {
+        console.error('Response error:', error.response)
+      }
     } finally {
       setIsProcessing(false)
     }
@@ -571,6 +604,114 @@ Please help me analyze this meeting and answer any questions I have.`
               {result.summary}
             </p>
           </div>
+
+          {/* Speakers Section */}
+          {result.speakers && result.speakers.length > 0 && (
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '2rem',
+              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '600', 
+                color: '#111827',
+                marginBottom: '1rem'
+              }}>
+                👥 Meeting Participants
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                {result.speakers.map((speaker, index) => (
+                  <div key={speaker.id || index} style={{
+                    padding: '1rem',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <h4 style={{ 
+                      fontSize: '1rem', 
+                      fontWeight: '600', 
+                      color: '#111827',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {speaker.name}
+                    </h4>
+                    {speaker.role && (
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                        {speaker.role}
+                      </p>
+                    )}
+                    {speaker.quotes && speaker.quotes.length > 0 && (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.25rem' }}>Key quotes:</p>
+                        {speaker.quotes.slice(0, 2).map((quote, qIndex) => (
+                          <p key={qIndex} style={{ 
+                            fontSize: '0.875rem', 
+                            color: '#374151', 
+                            fontStyle: 'italic',
+                            marginBottom: '0.25rem'
+                          }}>
+                            "{quote}"
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Transcript by Speaker */}
+          {result.transcriptBySpeaker && result.transcriptBySpeaker.length > 0 && (
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '2rem',
+              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{ 
+                fontSize: '1.5rem', 
+                fontWeight: '600', 
+                color: '#111827',
+                marginBottom: '1rem'
+              }}>
+                📝 Transcript by Speaker
+              </h2>
+              <div style={{
+                backgroundColor: '#f9fafb',
+                borderRadius: '0.5rem',
+                padding: '1.5rem',
+                maxHeight: '400px',
+                overflowY: 'auto'
+              }}>
+                {result.transcriptBySpeaker.map((segment, index) => (
+                  <div key={index} style={{
+                    marginBottom: '1rem',
+                    paddingBottom: '1rem',
+                    borderBottom: index < result.transcriptBySpeaker!.length - 1 ? '1px solid #e5e7eb' : 'none'
+                  }}>
+                    <div style={{
+                      fontWeight: '600',
+                      color: '#667eea',
+                      marginBottom: '0.5rem',
+                      fontSize: '0.875rem'
+                    }}>
+                      {segment.speaker}:
+                    </div>
+                    <div style={{
+                      color: '#374151',
+                      lineHeight: '1.6',
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      {segment.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Key Points & Action Items */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
