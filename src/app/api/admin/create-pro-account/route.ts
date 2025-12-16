@@ -73,15 +73,16 @@ export async function POST(req: Request) {
       }
 
       // Update in-memory store (critical for login)
-      // Since users Map is module-scoped, we need to update it directly
-      // We'll recreate the user in memory with new password
-      const { createUser: createUserFunc } = await import("@/lib/auth")
-      // Delete old entry by creating new one
-      try {
-        await createUserFunc(email, password, userName)
-      } catch (e) {
-        // If it fails, the user might already exist - that's okay for now
-        console.log("Note: User may already exist in memory")
+      // Add user to in-memory store with database user ID and password hash
+      if (existingDbUser) {
+        const { addUserToMemory } = await import("@/lib/auth")
+        addUserToMemory(
+          email,
+          existingDbUser.id,
+          hashedPassword, // Use the newly hashed password
+          userName
+        )
+        console.log("User synced to in-memory store with database ID")
       }
 
       return NextResponse.json({

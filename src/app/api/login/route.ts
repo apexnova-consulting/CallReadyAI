@@ -48,16 +48,15 @@ export async function POST(req: Request) {
               name: dbUser.name || validatedEmail.split('@')[0]
             }
             
-            // Add to in-memory store for future logins (without creating a session)
-            const hashedPassword = await bcrypt.hash(validatedPassword, 12)
-            const { getUser: getUserFunc } = await import("@/lib/auth")
-            if (!getUserFunc(validatedEmail)) {
-              // Access the users Map directly through the module
-              // We'll import the module and add the user
-              const authModule = await import("@/lib/auth")
-              // The Map is not exported, so we need to use a helper
-              // Actually, let's just proceed - the session will be created below
-            }
+            // Add to in-memory store for future logins
+            const { addUserToMemory } = await import("@/lib/auth")
+            addUserToMemory(
+              validatedEmail,
+              dbUser.id,
+              dbUser.password, // Use the existing hash from database
+              dbUser.name || validatedEmail.split('@')[0]
+            )
+            console.log("User synced to in-memory store")
           } else {
             console.log("Database password verification failed")
           }

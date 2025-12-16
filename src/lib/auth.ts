@@ -98,3 +98,13 @@ export async function validateUser(email: string, password: string) {
 export function getAllUsers() {
   return Array.from(users.values())
 }
+
+// Helper function to add a user to in-memory store (for syncing from database)
+export function addUserToMemory(email: string, userId: string, hashedPassword: string, name: string) {
+  users.set(email, {
+    id: userId,
+    email,
+    name,
+    password: hashedPassword,
+  })
+}
