@@ -3,6 +3,7 @@ import { z } from "zod"
 import { getSession } from "@/lib/auth"
 import { storeBrief, getAllBriefsForUser, BriefData } from "@/lib/brief-storage"
 import { buyerIntentService } from "@/lib/buyer-intent-service"
+import { db } from "@/lib/db"
 
 const briefSchema = z.object({
   prospectName: z.string().min(1),
@@ -80,10 +81,31 @@ export async function POST(req: Request) {
 
     console.log("Brief data validated:", { prospectName, companyName, role })
 
-    // Check brief limit (mock - in production, this would check database)
+    // Check brief limit from database subscription
     const userBriefs = getAllBriefsForUser(session.user.id)
     const briefsUsed = userBriefs.length
-    const briefsLimit = 5 // Free tier limit
+    
+    let briefsLimit = 5 // Default to Free tier
+    
+    try {
+      // Try to find user in database by email or ID
+      const dbUser = await db.user.findFirst({
+        where: {
+          OR: [
+            { email: session.user.email },
+            { id: session.user.id }
+          ]
+        },
+        include: { subscription: true }
+      })
+
+      if (dbUser?.subscription) {
+        briefsLimit = dbUser.subscription.briefsLimit || 5
+      }
+    } catch (error) {
+      console.error("Error fetching subscription for brief limit:", error)
+      // Fall back to default limit
+    }
 
     if (briefsUsed >= briefsLimit) {
       console.log("Brief limit exceeded")

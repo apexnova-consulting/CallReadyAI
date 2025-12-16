@@ -5,10 +5,27 @@ import { useRouter } from "next/navigation"
 
 export default function BillingPage() {
   const [briefsUsed, setBriefsUsed] = useState(0)
+  const [briefsLimit, setBriefsLimit] = useState(5)
+  const [currentPlan, setCurrentPlan] = useState("Free")
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
+    // Fetch subscription info from API
+    const fetchSubscription = async () => {
+      try {
+        const response = await fetch('/api/subscription')
+        if (response.ok) {
+          const data = await response.json()
+          setBriefsLimit(data.briefsLimit || 5)
+          setCurrentPlan(data.plan === "pro" ? "Pro" : data.plan === "starter" ? "Starter" : "Free")
+          setBriefsUsed(data.briefsUsed || 0)
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error)
+      }
+    }
+
     // Load brief count from localStorage
     try {
       const stored = localStorage.getItem('callready_briefs')
@@ -25,13 +42,12 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error('Failed to load brief count:', error)
-    } finally {
-      setIsLoading(false)
     }
-  }, [])
 
-  const briefsLimit = 5 // Free tier limit
-  const currentPlan = briefsUsed >= briefsLimit ? "Pro" : "Free"
+    fetchSubscription().finally(() => {
+      setIsLoading(false)
+    })
+  }, [])
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
