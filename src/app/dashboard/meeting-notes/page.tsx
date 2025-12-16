@@ -30,7 +30,7 @@ export default function MeetingNotesPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    // Initialize speech recognition if available
+    // Initialize speech recognition once on mount
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       const recognition = new SpeechRecognition()
@@ -38,6 +38,11 @@ export default function MeetingNotesPage() {
       recognition.continuous = true
       recognition.interimResults = true
       recognition.lang = 'en-US'
+      
+      recognition.onstart = () => {
+        console.log('Speech recognition started')
+        setError(null)
+      }
       
       recognition.onresult = (event: any) => {
         let finalTranscript = ''
@@ -54,44 +59,76 @@ export default function MeetingNotesPage() {
         
         if (finalTranscript) {
           setTranscript(prev => prev + finalTranscript)
+          setInterimTranscript('') // Clear interim when we get final
         }
-        setInterimTranscript(interim)
+        if (interim) {
+          setInterimTranscript(interim)
+        }
       }
       
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error)
         if (event.error === 'no-speech') {
-          // This is common, don't show error
+          // This is common, don't show error - just log it
+          console.log('No speech detected (this is normal)')
           return
         }
-        setError(`Speech recognition error: ${event.error}`)
+        if (event.error === 'aborted') {
+          // User stopped or page changed - don't show error
+          return
+        }
+        if (event.error === 'network') {
+          setError('Network error with speech recognition. Please check your internet connection.')
+          return
+        }
+        if (event.error === 'not-allowed') {
+          setError('Microphone permission denied. Please allow microphone access in your browser settings and refresh the page.')
+          return
+        }
+        setError(`Speech recognition error: ${event.error}. Please try again.`)
       }
       
       recognition.onend = () => {
+        console.log('Speech recognition ended')
         // Auto-restart if still recording
         if (isRecording && recognitionRef.current) {
           try {
-            recognitionRef.current.start()
-          } catch (e) {
+            console.log('Auto-restarting speech recognition...')
+            setTimeout(() => {
+              if (isRecording && recognitionRef.current) {
+                recognitionRef.current.start()
+              }
+            }, 100)
+          } catch (e: any) {
             console.error('Failed to restart recognition:', e)
+            if (e.message && e.message.includes('already started')) {
+              // Recognition already running, that's fine
+              return
+            }
+            setError(`Failed to restart recognition: ${e.message}`)
           }
         }
       }
       
       recognitionRef.current = recognition
+      console.log('Speech recognition initialized')
     } else {
-      setError('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.')
+      setError('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari for best results.')
     }
 
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop()
+        try {
+          recognitionRef.current.stop()
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
       }
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
     }
-  }, [isRecording])
+  }, []) // Only run once on mount, not when isRecording changes
 
   const startRecording = async () => {
     try {
@@ -101,7 +138,16 @@ export default function MeetingNotesPage() {
       setResult(null)
       setRecordingTime(0)
       
-      // Request microphone permission
+      console.log('Starting recording...')
+      
+      // Check if speech recognition is available
+      if (!recognitionRef.current) {
+        setError('Speech recognition not initialized. Please refresh the page and try again.')
+        return
+      }
+      
+      // Request microphone permission first
+      console.log('Requesting microphone permission...')
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -109,37 +155,66 @@ export default function MeetingNotesPage() {
           autoGainControl: true
         } 
       })
+      console.log('Microphone permission granted')
       streamRef.current = stream
       
       // Initialize MediaRecorder for audio backup
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      })
-      mediaRecorderRef.current = mediaRecorder
-      audioChunksRef.current = []
+      try {
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 
+                        MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
+                        'audio/webm' // Default fallback
+        const mediaRecorder = new MediaRecorder(stream, { mimeType })
+        mediaRecorderRef.current = mediaRecorder
+        audioChunksRef.current = []
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data)
+          }
+        }
+        
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorder.mimeType 
+          })
+          console.log('Audio recorded:', audioBlob.size, 'bytes')
+        }
+        
+        // Start recording
+        mediaRecorder.start(1000) // Collect data every second
+        console.log('MediaRecorder started')
+      } catch (recorderError: any) {
+        console.warn('MediaRecorder initialization failed:', recorderError)
+        // Continue without MediaRecorder - speech recognition will still work
+      }
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
+      // Start speech recognition
+      try {
+        if (recognitionRef.current) {
+          console.log('Starting speech recognition...')
+          recognitionRef.current.start()
+          console.log('Speech recognition started successfully')
+        }
+      } catch (recognitionError: any) {
+        console.error('Speech recognition start error:', recognitionError)
+        if (recognitionError.message && recognitionError.message.includes('already started')) {
+          // Already started, that's fine
+          console.log('Speech recognition already running')
+        } else {
+          setError(`Failed to start speech recognition: ${recognitionError.message || recognitionError}`)
+          // Stop media recorder if recognition fails
+          if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.stop()
+          }
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop())
+          }
+          return
         }
       }
       
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { 
-          type: mediaRecorder.mimeType 
-        })
-        console.log('Audio recorded:', audioBlob.size, 'bytes')
-      }
-      
-      // Start recording
-      mediaRecorder.start(1000) // Collect data every second
-      
-      // Start speech recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.start()
-      }
-      
       setIsRecording(true)
+      console.log('Recording state set to true')
       
       // Start timer
       timerRef.current = setInterval(() => {
@@ -148,27 +223,55 @@ export default function MeetingNotesPage() {
       
     } catch (error: any) {
       console.error('Error starting recording:', error)
-      if (error.name === 'NotAllowedError') {
-        setError('Microphone permission denied. Please allow microphone access and try again.')
-      } else if (error.name === 'NotFoundError') {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setError('Microphone permission denied. Please allow microphone access in your browser settings and try again.')
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         setError('No microphone found. Please connect a microphone and try again.')
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        setError('Microphone is being used by another application. Please close other apps using the microphone and try again.')
       } else {
-        setError('Failed to start recording. Please check microphone permissions.')
+        setError(`Failed to start recording: ${error.message || error.name || 'Unknown error'}. Please check microphone permissions and try again.`)
       }
     }
   }
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
+    console.log('Stopping recording...')
+    
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+          console.log('Speech recognition stopped')
+        } catch (e: any) {
+          console.warn('Error stopping recognition:', e)
+          // Ignore errors when stopping
+        }
+      }
+    } catch (e) {
+      console.warn('Error accessing recognition:', e)
     }
     
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
+    try {
+      if (mediaRecorderRef.current && isRecording) {
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop()
+          console.log('MediaRecorder stopped')
+        }
+      }
+    } catch (e) {
+      console.warn('Error stopping MediaRecorder:', e)
     }
     
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          track.stop()
+          console.log('Media track stopped')
+        })
+      }
+    } catch (e) {
+      console.warn('Error stopping stream:', e)
     }
     
     if (timerRef.current) {
@@ -178,6 +281,7 @@ export default function MeetingNotesPage() {
     
     setIsRecording(false)
     setInterimTranscript('')
+    console.log('Recording stopped successfully')
   }
 
   const processTranscript = async () => {
@@ -370,9 +474,35 @@ Please help me analyze this meeting and answer any questions I have.`
             border: '1px solid #fecaca',
             borderRadius: '0.5rem',
             color: '#991b1b',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <div>
+              <strong>Error:</strong> {error}
+              {error.includes('permission') && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', opacity: 0.9 }}>
+                  <strong>How to fix:</strong> Click the lock icon in your browser's address bar, then allow microphone access.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Browser compatibility warning */}
+        {typeof window !== 'undefined' && !('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window) && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fbbf24',
+            borderRadius: '0.5rem',
+            color: '#92400e',
             marginBottom: '1rem'
           }}>
-            {error}
+            <strong>⚠️ Browser Compatibility:</strong> Speech recognition works best in Chrome, Edge, or Safari. 
+            If you're using Firefox, please switch to Chrome for the best experience.
           </div>
         )}
 
@@ -403,11 +533,18 @@ Please help me analyze this meeting and answer any questions I have.`
               </p>
             </div>
           ) : (
-            <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
-              {isRecording 
-                ? 'Listening... Start speaking to see the transcript appear here.' 
-                : 'Click "Start Recording" to begin capturing your meeting notes.'}
-            </p>
+            <div>
+              <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
+                {isRecording 
+                  ? '🎤 Listening... Start speaking to see the transcript appear here in real-time.' 
+                  : 'Click "Start Recording" to begin capturing your meeting notes. Make sure to allow microphone access when prompted.'}
+              </p>
+              {isRecording && !transcript && !interimTranscript && (
+                <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.5rem', margin: 0 }}>
+                  💡 Tip: Speak clearly and ensure your microphone is working. The transcript will appear as you speak.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>
