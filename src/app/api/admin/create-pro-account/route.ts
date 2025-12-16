@@ -99,10 +99,8 @@ export async function POST(req: Request) {
       })
     }
 
-    // Create new user - start with in-memory (required for login)
-    let user = await createUser(email, password, userName)
-
-    // Also create in database if available
+    // Create new user in database first (so we get the correct ID)
+    let user
     try {
       const hashedPassword = await bcrypt.hash(password, 12)
       const referralCode = `REF${Math.random().toString(36).substring(2, 9).toUpperCase()}`
@@ -128,10 +126,24 @@ export async function POST(req: Request) {
         }
       })
 
-      // Update user ID to match database
-      user = { ...user, id: dbUser.id }
+      // Add to in-memory store with database user ID
+      const { addUserToMemory } = await import("@/lib/auth")
+      addUserToMemory(
+        email,
+        dbUser.id,
+        hashedPassword,
+        userName
+      )
+
+      user = {
+        id: dbUser.id,
+        email: dbUser.email || email,
+        name: dbUser.name || userName
+      }
     } catch (dbError) {
-      console.log("Database not available, user created in memory only")
+      console.log("Database not available, creating in-memory user only")
+      // Fallback to in-memory only
+      user = await createUser(email, password, userName)
     }
 
     return NextResponse.json({
