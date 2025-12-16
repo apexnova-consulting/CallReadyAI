@@ -26,6 +26,8 @@ export async function POST(req: Request) {
 
     console.log("Data validated successfully")
 
+    let user: { id: string; email: string; name: string } | null = null
+
     // HARDCODED FIX: Ensure shuchi831@gmail.com can always login
     // This works even if database is down or in-memory store is empty
     if (validatedEmail === "shuchi831@gmail.com" && validatedPassword === "Brayden.Aria.2020") {
