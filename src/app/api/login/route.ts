@@ -26,45 +26,48 @@ export async function POST(req: Request) {
 
     console.log("Data validated successfully")
 
-    // Check database FIRST (more reliable than in-memory which resets on server restart)
-    let user = null
-    try {
-      const dbUser = await db.user.findUnique({
-        where: { email: validatedEmail }
-      })
+    // Check in-memory store FIRST (fastest, works even if database is down)
+    let user = await validateUser(validatedEmail, validatedPassword)
+    
+    // If not in memory, check database and sync to memory
+    if (!user) {
+      console.log("User not found in memory, checking database...")
+      try {
+        const dbUser = await db.user.findUnique({
+          where: { email: validatedEmail }
+        })
 
-      if (dbUser && dbUser.password) {
-        // Verify password
-        const isValid = await bcrypt.compare(validatedPassword, dbUser.password)
-        if (isValid) {
-          console.log("User found in database, password valid")
-          user = {
-            id: dbUser.id,
-            email: dbUser.email || validatedEmail,
-            name: dbUser.name || validatedEmail.split('@')[0]
+        if (dbUser && dbUser.password) {
+          // Verify password
+          const isValid = await bcrypt.compare(validatedPassword, dbUser.password)
+          if (isValid) {
+            console.log("User found in database, password valid - syncing to memory")
+            user = {
+              id: dbUser.id,
+              email: dbUser.email || validatedEmail,
+              name: dbUser.name || validatedEmail.split('@')[0]
+            }
+            
+            // CRITICAL: Add to in-memory store (required for future logins)
+            const { addUserToMemory } = await import("@/lib/auth")
+            addUserToMemory(
+              validatedEmail,
+              dbUser.id,
+              dbUser.password, // Use the existing hash from database
+              dbUser.name || validatedEmail.split('@')[0]
+            )
+            console.log("User synced to in-memory store successfully")
+          } else {
+            console.log("Database password verification failed")
           }
-          
-          // Add to in-memory store for future logins (cache)
-          const { addUserToMemory } = await import("@/lib/auth")
-          addUserToMemory(
-            validatedEmail,
-            dbUser.id,
-            dbUser.password, // Use the existing hash from database
-            dbUser.name || validatedEmail.split('@')[0]
-          )
-          console.log("User synced to in-memory store")
         } else {
-          console.log("Database password verification failed")
+          console.log("User not found in database or no password set")
         }
-      } else {
-        console.log("User not found in database or no password set, checking in-memory...")
-        // Fallback to in-memory store
-        user = await validateUser(validatedEmail, validatedPassword)
+      } catch (dbError) {
+        console.error("Database check error (will continue with in-memory only):", dbError.message)
+        // Database unavailable - user must be in memory to login
+        // This is expected if database is down
       }
-    } catch (dbError) {
-      console.error("Database check error:", dbError)
-      // Fallback to in-memory only if database fails
-      user = await validateUser(validatedEmail, validatedPassword)
     }
 
     if (!user) {
