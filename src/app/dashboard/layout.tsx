@@ -132,6 +132,17 @@ export default function DashboardLayout({
                   Analytics
                 </Link>
                 <Link 
+                  href="/dashboard/meeting-notes"
+                  style={{ 
+                    color: "#6b7280", 
+                    textDecoration: "none",
+                    fontSize: "0.875rem",
+                    fontWeight: "500"
+                  }}
+                >
+                  Meeting Notes
+                </Link>
+                <Link 
                   href="/dashboard/billing"
                   style={{ 
                     color: "#6b7280", 
