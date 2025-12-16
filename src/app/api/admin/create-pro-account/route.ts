@@ -146,11 +146,25 @@ export async function POST(req: Request) {
       user = await createUser(email, password, userName)
     }
 
+    // Get the actual database user ID if available
+    let finalUserId = user.id
+    try {
+      const dbUserCheck = await db.user.findUnique({
+        where: { email },
+        include: { subscription: true }
+      })
+      if (dbUserCheck) {
+        finalUserId = dbUserCheck.id
+      }
+    } catch (e) {
+      // Ignore if database check fails
+    }
+
     return NextResponse.json({
       success: true,
       message: "Pro account created successfully",
       user: {
-        id: user.id,
+        id: finalUserId,
         email: user.email,
         name: user.name,
         plan: "pro",
