@@ -298,6 +298,33 @@ export default function MeetingNotesPage() {
     console.log('Recording stopped successfully')
   }
 
+  const openGeminiWithTranscript = () => {
+    if (!transcript.trim()) {
+      setError('No transcript available. Please record a meeting first.')
+      return
+    }
+
+    // Create a comprehensive prompt for Gemini
+    const geminiPrompt = `Please analyze this meeting transcript and provide:
+
+1. A comprehensive meeting summary (2-3 paragraphs)
+2. Key discussion points (5-7 bullet points)
+3. Action items with clear ownership and deadlines (3-5 items)
+4. Speaker identification - identify different speakers and organize the transcript by speaker
+5. A professional follow-up email ready to send with subject line and body
+
+MEETING TRANSCRIPT:
+${transcript}
+
+Please format your response clearly with sections for Summary, Key Points, Action Items, Speakers, and Follow-up Email.`
+
+    // Encode the prompt for URL
+    const encodedPrompt = encodeURIComponent(geminiPrompt)
+    
+    // Open Google Gemini with the prompt
+    window.open(`https://gemini.google.com/app?prompt=${encodedPrompt}`, '_blank')
+  }
+
   const processTranscript = async () => {
     if (!transcript.trim()) {
       setError('No transcript available. Please record a meeting first.')
@@ -327,21 +354,59 @@ export default function MeetingNotesPage() {
           const errorText = await response.text()
           throw new Error(`Server error (${response.status}): ${errorText || 'Unknown error'}`)
         }
-        throw new Error(errorData.error || errorData.details || 'Failed to process meeting notes')
+        
+        const errorMessage = errorData.error || errorData.details || 'Failed to process meeting notes'
+        
+        // If quota error, offer to open Gemini directly
+        if (errorMessage.includes('quota') || errorMessage.includes('Quota') || response.status === 429) {
+          setError(`AI service quota exceeded. Opening Google Gemini with your transcript instead...`)
+          // Wait a moment to show the message, then open Gemini
+          setTimeout(() => {
+            openGeminiWithTranscript()
+            setError(null) // Clear error after opening
+          }, 1500)
+          setIsProcessing(false)
+          return
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
       
       // Check if we got an error in the response
       if (data.error) {
-        throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
+        const errorMessage = data.error + (data.details ? `: ${data.details}` : '')
+        
+        // If quota error, offer to open Gemini directly
+        if (errorMessage.includes('quota') || errorMessage.includes('Quota')) {
+          setError(`AI service quota exceeded. Opening Google Gemini with your transcript instead...`)
+          setTimeout(() => {
+            openGeminiWithTranscript()
+            setError(null)
+          }, 1500)
+          setIsProcessing(false)
+          return
+        }
+        
+        throw new Error(errorMessage)
       }
       
       setResult(data)
     } catch (error: any) {
       console.error('Error processing transcript:', error)
       const errorMessage = error.message || 'Failed to process meeting notes. Please try again.'
-      setError(errorMessage)
+      
+      // If quota or API error, offer Gemini fallback
+      if (errorMessage.includes('quota') || errorMessage.includes('Quota') || errorMessage.includes('API')) {
+        setError(`${errorMessage} Opening Google Gemini as an alternative...`)
+        setTimeout(() => {
+          openGeminiWithTranscript()
+          setError(null)
+        }, 1500)
+      } else {
+        setError(errorMessage)
+      }
       
       // Show more detailed error in console for debugging
       if (error.response) {
@@ -480,23 +545,43 @@ Please help me analyze this meeting and answer any questions I have.`
           )}
 
           {transcript && !isRecording && (
-            <button
-              onClick={processTranscript}
-              disabled={isProcessing}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: isProcessing ? '#9ca3af' : '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              {isProcessing ? 'Processing...' : '📝 Process with AI'}
-            </button>
+            <>
+              <button
+                onClick={processTranscript}
+                disabled={isProcessing}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: isProcessing ? '#9ca3af' : '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isProcessing ? 'not-allowed' : 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                {isProcessing ? 'Processing...' : '📝 Process with AI'}
+              </button>
+              <button
+                onClick={openGeminiWithTranscript}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              >
+                🤖 Open in Gemini
+              </button>
+            </>
           )}
         </div>
 
