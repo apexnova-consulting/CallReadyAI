@@ -298,7 +298,7 @@ export default function MeetingNotesPage() {
     console.log('Recording stopped successfully')
   }
 
-  const openGeminiWithTranscript = () => {
+  const openGeminiWithTranscript = async () => {
     if (!transcript.trim()) {
       setError('No transcript available. Please record a meeting first.')
       return
@@ -318,11 +318,91 @@ ${transcript}
 
 Please format your response clearly with sections for Summary, Key Points, Action Items, Speakers, and Follow-up Email.`
 
-    // Encode the prompt for URL
-    const encodedPrompt = encodeURIComponent(geminiPrompt)
-    
-    // Open Google Gemini with the prompt
-    window.open(`https://gemini.google.com/app?prompt=${encodedPrompt}`, '_blank')
+    try {
+      // Copy the prompt to clipboard
+      await navigator.clipboard.writeText(geminiPrompt)
+      console.log('Prompt copied to clipboard')
+      
+      // Show a brief notification
+      const notification = document.createElement('div')
+      notification.textContent = '✅ Transcript and prompt copied! Opening Gemini...'
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10000;
+        font-weight: 600;
+      `
+      document.body.appendChild(notification)
+      
+      // Remove notification after 3 seconds
+      setTimeout(() => {
+        notification.remove()
+      }, 3000)
+      
+      // Open Google Gemini
+      // Try multiple URL formats to ensure it works
+      const geminiUrl = `https://gemini.google.com/app`
+      const geminiWindow = window.open(geminiUrl, '_blank')
+      
+      // If window opened successfully, show instructions
+      if (geminiWindow) {
+        // Wait a moment for Gemini to load, then try to paste
+        setTimeout(() => {
+          // Show instructions since we can't directly paste into another domain
+          const instructions = document.createElement('div')
+          instructions.innerHTML = `
+            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                        background: white; padding: 2rem; border-radius: 0.75rem; 
+                        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); z-index: 10001; max-width: 500px;">
+              <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.25rem; font-weight: 600;">
+                ✅ Transcript Copied!
+              </h3>
+              <p style="margin: 0 0 1rem 0; color: #374151; line-height: 1.6;">
+                The transcript and prompt have been copied to your clipboard. 
+                In the Gemini window that just opened, simply <strong>press Ctrl+V (or Cmd+V on Mac)</strong> to paste.
+              </p>
+              <button onclick="this.parentElement.parentElement.remove()" 
+                      style="padding: 0.75rem 1.5rem; background: #667eea; color: white; 
+                             border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; width: 100%;">
+                Got it!
+              </button>
+            </div>
+          `
+          document.body.appendChild(instructions)
+        }, 1000)
+      }
+    } catch (error: any) {
+      console.error('Error copying to clipboard:', error)
+      // Fallback: show the prompt in an alert or textarea they can copy
+      const textarea = document.createElement('textarea')
+      textarea.value = geminiPrompt
+      textarea.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                                 width: 80%; max-width: 600px; height: 400px; padding: 1rem; 
+                                 border: 2px solid #667eea; border-radius: 0.5rem; z-index: 10000;'
+      textarea.readOnly = true
+      
+      const copyBtn = document.createElement('button')
+      copyBtn.textContent = 'Copy & Open Gemini'
+      copyBtn.style.cssText = 'position: fixed; top: calc(50% + 220px); left: 50%; transform: translateX(-50%); 
+                               padding: 0.75rem 1.5rem; background: #667eea; color: white; 
+                               border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; z-index: 10001;'
+      copyBtn.onclick = () => {
+        textarea.select()
+        document.execCommand('copy')
+        window.open('https://gemini.google.com/app', '_blank')
+        textarea.remove()
+        copyBtn.remove()
+      }
+      
+      document.body.appendChild(textarea)
+      document.body.appendChild(copyBtn)
+    }
   }
 
   const processTranscript = async () => {
@@ -423,7 +503,7 @@ Please format your response clearly with sections for Summary, Key Points, Actio
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  const openInGemini = () => {
+  const openInGemini = async () => {
     if (!result) return
     
     // Create a prompt for Gemini with the meeting context
@@ -448,11 +528,38 @@ ${result.followUpEmail.body}
 
 Please help me analyze this meeting and answer any questions I have.`
 
-    // Encode the prompt for URL
-    const encodedPrompt = encodeURIComponent(geminiPrompt)
-    
-    // Open Google Gemini with the prompt
-    window.open(`https://gemini.google.com/app?prompt=${encodedPrompt}`, '_blank')
+    try {
+      // Copy the prompt to clipboard
+      await navigator.clipboard.writeText(geminiPrompt)
+      
+      // Show notification
+      const notification = document.createElement('div')
+      notification.textContent = '✅ Meeting notes copied! Opening Gemini... Press Ctrl+V (Cmd+V) to paste.'
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10000;
+        font-weight: 600;
+        max-width: 300px;
+      `
+      document.body.appendChild(notification)
+      
+      setTimeout(() => notification.remove(), 4000)
+      
+      // Open Google Gemini
+      window.open('https://gemini.google.com/app', '_blank')
+    } catch (error) {
+      console.error('Error copying to clipboard:', error)
+      // Fallback: open with URL parameter
+      const encodedPrompt = encodeURIComponent(geminiPrompt)
+      window.open(`https://gemini.google.com/app?prompt=${encodedPrompt}`, '_blank')
+    }
   }
 
   return (
