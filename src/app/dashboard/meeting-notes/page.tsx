@@ -382,16 +382,12 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       // Fallback: show the prompt in an alert or textarea they can copy
       const textarea = document.createElement('textarea')
       textarea.value = geminiPrompt
-      textarea.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                                 width: 80%; max-width: 600px; height: 400px; padding: 1rem; 
-                                 border: 2px solid #667eea; border-radius: 0.5rem; z-index: 10000;'
+      textarea.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 600px; height: 400px; padding: 1rem; border: 2px solid #667eea; border-radius: 0.5rem; z-index: 10000;'
       textarea.readOnly = true
       
       const copyBtn = document.createElement('button')
       copyBtn.textContent = 'Copy & Open Gemini'
-      copyBtn.style.cssText = 'position: fixed; top: calc(50% + 220px); left: 50%; transform: translateX(-50%); 
-                               padding: 0.75rem 1.5rem; background: #667eea; color: white; 
-                               border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; z-index: 10001;'
+      copyBtn.style.cssText = 'position: fixed; top: calc(50% + 220px); left: 50%; transform: translateX(-50%); padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; z-index: 10001;'
       copyBtn.onclick = () => {
         textarea.select()
         document.execCommand('copy')
