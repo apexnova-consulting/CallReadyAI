@@ -596,11 +596,14 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       
       setError(errorMessage)
       setUploadProgress(0)
+      setIsProcessing(false)
     } finally {
       setIsUploading(false)
       // Keep progress at 100 if successful, reset if error
       if (!uploadError) {
         setUploadProgress(100)
+      } else {
+        setIsProcessing(false)
       }
     }
   }
