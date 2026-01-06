@@ -79,13 +79,19 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       
       const buffer = Buffer.from(arrayBuffer)
       
-      // Add timeout for PDF parsing (30 seconds max)
-      const parsePromise = pdfParse(buffer)
+      // Add timeout for PDF parsing (10 seconds max - should be instant for small files)
+      const parsePromise = pdfParse(buffer, {
+        max: 0, // No page limit
+        version: 'v1.10.100' // Use specific version for stability
+      })
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('PDF parsing timed out after 30 seconds')), 30000)
+        setTimeout(() => reject(new Error('PDF parsing timed out after 10 seconds')), 10000)
       )
       
+      const startTime = Date.now()
       const data = await Promise.race([parsePromise, timeoutPromise]) as any
+      const parseTime = Date.now() - startTime
+      console.log(`PDF parsing completed in ${parseTime}ms`)
       
       if (!data || !data.text) {
         throw new Error("PDF parsing returned no text content")
@@ -334,20 +340,25 @@ ${transcript}`
   console.log("Calling Gemini API for analysis...")
   console.log(`Transcript length: ${transcript.length} characters`)
   
-  // Optimize prompt - make it more concise for faster processing
-  const optimizedPrompt = `Analyze this meeting transcript and return JSON only:
+  // Ultra-optimized prompt for fastest processing
+  const transcriptPreview = transcript.length > 30000 ? transcript.substring(0, 30000) + '\n[Truncated...]' : transcript
+  
+  const optimizedPrompt = `Meeting transcript analysis. Return JSON only:
 
 {
-  "summary": "2-3 paragraph meeting summary",
+  "summary": "2-3 paragraph summary",
   "keyPoints": ["point1", "point2", "point3", "point4", "point5"],
   "actionItems": ["action1", "action2", "action3"],
-  "speakers": [{"id": "speaker1", "name": "Name", "role": "Role", "quotes": ["quote1"]}],
-  "transcriptBySpeaker": [{"speaker": "Name", "text": "transcript"}],
-  "followUpEmail": {"subject": "Subject", "body": "Email body under 200 words"}
+  "speakers": [{"id": "s1", "name": "Name", "role": "Role", "quotes": ["quote"]}],
+  "transcriptBySpeaker": [{"speaker": "Name", "text": "text"}],
+  "followUpEmail": {"subject": "Subject", "body": "Body under 200 words"}
 }
 
 TRANSCRIPT:
-${transcript.substring(0, 50000)}${transcript.length > 50000 ? '\n[Transcript truncated for processing...]' : ''}`
+${transcriptPreview}`
+  
+  console.log(`Calling Gemini API with ${transcriptPreview.length} char transcript...`)
+  const startTime = Date.now()
   
   const geminiResponse = await fetch(`${apiUrl}?key=${apiKey}`, {
     method: 'POST',
@@ -361,13 +372,16 @@ ${transcript.substring(0, 50000)}${transcript.length > 50000 ? '\n[Transcript tr
         }]
       }],
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096, // Increased for better responses
-        topP: 0.95,
-        topK: 40,
+        temperature: 0.5, // Lower for faster, more deterministic responses
+        maxOutputTokens: 3072, // Reduced for faster generation
+        topP: 0.9,
+        topK: 20,
       }
     })
   })
+  
+  const fetchTime = Date.now() - startTime
+  console.log(`Gemini API request completed in ${fetchTime}ms`)
 
   console.log("Gemini response status:", geminiResponse.status)
 
@@ -494,11 +508,13 @@ export async function POST(req: Request) {
         
         console.log("Transcript extracted from file, length:", transcript.length)
         
-        // Truncate very long transcripts to avoid API limits (keep first 50k characters for faster processing)
-        if (transcript.length > 50000) {
-          console.warn(`Transcript is very long (${transcript.length} chars), truncating to 50k for faster AI processing`)
-          transcript = transcript.substring(0, 50000) + "\n\n[Transcript truncated for faster processing...]"
+        // Truncate very long transcripts to avoid API limits (keep first 30k characters for fastest processing)
+        if (transcript.length > 30000) {
+          console.warn(`Transcript is very long (${transcript.length} chars), truncating to 30k for fastest AI processing`)
+          transcript = transcript.substring(0, 30000) + "\n\n[Transcript truncated for faster processing...]"
         }
+        
+        console.log(`Transcript ready for AI processing: ${transcript.length} characters`)
         
         // Check if user wants auto-processing (check for autoProcess parameter)
         const autoProcess = formData.get('autoProcess') === 'true'
@@ -506,11 +522,15 @@ export async function POST(req: Request) {
         if (autoProcess && transcript.trim()) {
           // Auto-process with AI immediately
           console.log("Auto-processing transcript with AI...")
+          const aiStartTime = Date.now()
           try {
             const result = await processTranscriptWithAI(transcript)
+            const aiTime = Date.now() - aiStartTime
+            console.log(`AI processing completed in ${aiTime}ms`)
             return NextResponse.json(result)
           } catch (aiError: any) {
-            console.error("Error in auto-processing:", aiError)
+            const aiTime = Date.now() - aiStartTime
+            console.error(`AI processing failed after ${aiTime}ms:`, aiError)
             // Return transcript even if AI processing fails
             return NextResponse.json({
               transcript: transcript,
