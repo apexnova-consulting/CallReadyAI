@@ -88,7 +88,8 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
       
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
+      // Use gemini-1.5-pro for PDF processing (supports multimodal content including PDFs)
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`
       const startTime = Date.now()
       
       const response = await fetch(`${apiUrl}?key=${apiKey}`, {
