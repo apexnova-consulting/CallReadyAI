@@ -78,45 +78,80 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       }
       
       const buffer = Buffer.from(arrayBuffer)
+      console.log(`PDF buffer size: ${buffer.length} bytes`)
       
-      // Add timeout for PDF parsing (10 seconds max - should be instant for small files)
-      const parsePromise = pdfParse(buffer, {
-        max: 0, // No page limit
-        version: 'v1.10.100' // Use specific version for stability
-      })
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('PDF parsing timed out after 10 seconds')), 10000)
-      )
-      
+      // Try parsing with minimal options first (fastest)
+      let data: any = null
       const startTime = Date.now()
-      const data = await Promise.race([parsePromise, timeoutPromise]) as any
-      const parseTime = Date.now() - startTime
-      console.log(`PDF parsing completed in ${parseTime}ms`)
       
-      if (!data || !data.text) {
-        throw new Error("PDF parsing returned no text content")
+      try {
+        // First attempt: Simple parsing without options
+        const parsePromise = pdfParse(buffer)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('PDF parsing timed out after 5 seconds')), 5000)
+        )
+        
+        data = await Promise.race([parsePromise, timeoutPromise]) as any
+        const parseTime = Date.now() - startTime
+        console.log(`PDF parsing completed in ${parseTime}ms`)
+      } catch (firstError: any) {
+        console.warn("First PDF parse attempt failed, trying with options:", firstError.message)
+        
+        // Second attempt: With options
+        try {
+          const parsePromise = pdfParse(buffer, {
+            max: 0 // No page limit
+          })
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('PDF parsing timed out after 5 seconds')), 5000)
+          )
+          
+          data = await Promise.race([parsePromise, timeoutPromise]) as any
+          const parseTime = Date.now() - startTime
+          console.log(`PDF parsing (with options) completed in ${parseTime}ms`)
+        } catch (secondError: any) {
+          console.error("Second PDF parse attempt also failed:", secondError.message)
+          throw firstError // Throw the original error
+        }
       }
       
-      const text = data.text || ''
+      if (!data) {
+        throw new Error("PDF parsing returned no data")
+      }
       
-      if (!text || !text.trim()) {
+      // Check for text in multiple possible locations
+      const text = data.text || data.content || data.info?.text || ''
+      
+      if (!text || typeof text !== 'string') {
+        console.error("PDF parse result:", JSON.stringify(data, null, 2).substring(0, 500))
+        throw new Error("PDF parsing returned no text content. Data structure: " + Object.keys(data).join(', '))
+      }
+      
+      const trimmedText = text.trim()
+      
+      if (!trimmedText) {
         throw new Error("PDF appears to be empty or contains no extractable text. The PDF may contain only images or be password-protected.")
       }
       
-      console.log(`PDF parsed successfully, extracted ${text.length} characters`)
-      return text
+      console.log(`PDF parsed successfully, extracted ${trimmedText.length} characters`)
+      return trimmedText
     } catch (error: any) {
       console.error("PDF parsing error:", error)
+      console.error("Error stack:", error.stack)
       const errorMsg = error.message || 'Unknown error'
       
+      // Provide more helpful error messages
       if (errorMsg.includes('timeout')) {
         throw new Error(`PDF parsing timed out. The file may be too large or complex.`)
-      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted') || errorMsg.includes('Encrypted')) {
         throw new Error(`PDF is password-protected. Please remove the password and try again.`)
-      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid')) {
+      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid') || errorMsg.includes('Invalid')) {
         throw new Error(`PDF appears to be corrupted or invalid. Please try a different file.`)
+      } else if (errorMsg.includes('no text') || errorMsg.includes('empty')) {
+        throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please use OCR or convert to text first.`)
       } else {
-        throw new Error(`Failed to parse PDF: ${errorMsg}`)
+        // Include more details in error for debugging
+        throw new Error(`Failed to parse PDF: ${errorMsg}. Please ensure the PDF contains selectable text and is not corrupted.`)
       }
     }
   }
