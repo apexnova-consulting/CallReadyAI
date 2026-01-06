@@ -60,22 +60,49 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
     return await extractTranscriptFromZip(file)
   }
 
-  // Check if it's a PDF - Use Gemini API directly (more reliable than pdf-parse)
+  // Check if it's a PDF - Use pdf-parse (reliable for text PDFs) with Gemini fallback
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-    console.log("Processing PDF file with Gemini API...")
+    console.log("Processing PDF file...")
     
     // Validate file size first
     if (file.size === 0) {
       throw new Error("PDF file is empty")
     }
     
-    if (file.size > 20 * 1024 * 1024) { // 20MB limit for Gemini
-      throw new Error("PDF file is too large (max 20MB). Please use a smaller file.")
+    // Try pdf-parse first (fast and reliable for text PDFs)
+    try {
+      const pdfParse = (await import('pdf-parse')).default
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      
+      console.log(`PDF size: ${buffer.length} bytes`)
+      
+      const startTime = Date.now()
+      const data = await pdfParse(buffer)
+      const parseTime = Date.now() - startTime
+      console.log(`PDF parsing completed in ${parseTime}ms`)
+      
+      const text = data.text || ''
+      
+      if (text && text.trim()) {
+        console.log(`PDF parsed successfully, extracted ${text.trim().length} characters`)
+        return text.trim()
+      }
+      
+      // If no text, try Gemini as fallback
+      console.log("PDF-parse returned no text, trying Gemini API fallback...")
+    } catch (parseError: any) {
+      console.warn("PDF-parse failed, trying Gemini API fallback:", parseError.message)
     }
     
+    // Fallback: Use Gemini API (for image-based PDFs or when pdf-parse fails)
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
-      throw new Error("Gemini API key not configured. Cannot process PDF.")
+      throw new Error("PDF parsing failed and Gemini API key not configured.")
+    }
+    
+    if (file.size > 20 * 1024 * 1024) { // 20MB limit for Gemini
+      throw new Error("PDF file is too large (max 20MB). Please use a smaller file.")
     }
     
     try {
@@ -83,13 +110,11 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       const buffer = Buffer.from(arrayBuffer)
       const base64Data = buffer.toString('base64')
       
-      console.log(`PDF size: ${buffer.length} bytes, base64 length: ${base64Data.length}`)
-      
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
       
-      // Use gemini-1.5-pro for PDF processing (supports multimodal content including PDFs)
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`
+      // Use gemini-1.5-flash-latest (works in other parts of codebase)
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`
       const startTime = Date.now()
       
       const response = await fetch(`${apiUrl}?key=${apiKey}`, {
@@ -152,12 +177,14 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       
       if (error.name === 'AbortError' || errorMsg.includes('timeout')) {
         throw new Error(`PDF processing timed out after 30 seconds. The file may be too large.`)
-      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted') || errorMsg.includes('Encrypted')) {
+      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
         throw new Error(`PDF is password-protected. Please remove the password and try again.`)
       } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
         throw new Error(`AI service quota exceeded. Please try again later.`)
       } else if (errorMsg.includes('API key') || errorMsg.includes('401') || errorMsg.includes('403')) {
         throw new Error(`AI service authentication failed. Please contact support.`)
+      } else if (errorMsg.includes('not found') || errorMsg.includes('not supported')) {
+        throw new Error(`PDF processing service unavailable. Please try again later or contact support.`)
       } else {
         throw new Error(`Failed to process PDF: ${errorMsg}`)
       }
