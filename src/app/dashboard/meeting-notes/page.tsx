@@ -557,16 +557,33 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       if (data.transcript) {
         console.log("Setting transcript from file upload, length:", data.transcript.length)
         setTranscript(data.transcript)
+        setIsUploading(false) // File upload complete
         
         // If we got a full result (from auto-processing), set it immediately
         if (data.summary) {
           console.log("AI meeting notes generated automatically!")
           setResult(data)
           setIsProcessing(false)
+        } else if (data.processing) {
+          // Transcript ready, AI is processing in background
+          console.log("Transcript ready, AI processing in background...")
+          setIsProcessing(true)
+          // Auto-trigger AI processing after a short delay
+          setTimeout(() => {
+            if (data.transcript && data.transcript.trim()) {
+              processTranscript()
+            }
+          }, 1000)
         } else if (data.message && !data.error) {
-          // Transcript ready, but AI processing might still be happening
-          console.log("File processed, transcript ready")
-          // Don't set isProcessing to false yet - might still be processing
+          // Transcript ready, trigger AI processing automatically
+          console.log("File processed, triggering AI processing...")
+          setIsProcessing(true)
+          // Auto-trigger AI processing
+          setTimeout(() => {
+            if (data.transcript && data.transcript.trim()) {
+              processTranscript()
+            }
+          }, 500)
         } else if (data.error) {
           // AI processing failed but transcript is available
           console.warn("AI processing failed but transcript available:", data.error)

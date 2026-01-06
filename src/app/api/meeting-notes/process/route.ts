@@ -340,8 +340,8 @@ ${transcript}`
   console.log("Calling Gemini API for analysis...")
   console.log(`Transcript length: ${transcript.length} characters`)
   
-  // Ultra-optimized prompt for fastest processing - reduce to 20k for even faster processing
-  const transcriptPreview = transcript.length > 20000 ? transcript.substring(0, 20000) + '\n[Truncated for speed...]' : transcript
+  // Ultra-optimized prompt for fastest processing - reduce to 15k for maximum speed
+  const transcriptPreview = transcript.length > 15000 ? transcript.substring(0, 15000) + '\n[Truncated for speed...]' : transcript
   
   const optimizedPrompt = `Meeting transcript analysis. Return JSON only:
 
@@ -360,9 +360,9 @@ ${transcriptPreview}`
   console.log(`Calling Gemini API with ${transcriptPreview.length} char transcript...`)
   const startTime = Date.now()
   
-  // Add aggressive timeout - 30 seconds max for AI generation
+  // Add aggressive timeout - 15 seconds max for AI generation (very fast)
   const controller = new AbortController()
-  let timeoutId: NodeJS.Timeout | null = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+  let timeoutId: NodeJS.Timeout | null = setTimeout(() => controller.abort(), 15000) // 15 second timeout
   
   try {
     const fetchPromise = fetch(`${apiUrl}?key=${apiKey}`, {
@@ -377,10 +377,10 @@ ${transcriptPreview}`
           }]
         }],
         generationConfig: {
-          temperature: 0.3, // Even lower for fastest responses
-          maxOutputTokens: 2048, // Further reduced for speed
-          topP: 0.8,
-          topK: 15,
+          temperature: 0.2, // Very low for fastest, most deterministic responses
+          maxOutputTokens: 1536, // Further reduced for maximum speed
+          topP: 0.7,
+          topK: 10,
         }
       }),
       signal: controller.signal
@@ -471,7 +471,7 @@ ${transcriptPreview}`
     console.error(`Gemini API fetch failed after ${fetchTime}ms:`, fetchError)
     
     if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout')) {
-      throw new Error('AI generation timed out after 30 seconds. Please try again or use a shorter transcript.')
+      throw new Error('AI generation timed out after 15 seconds. Please try again or use a shorter transcript.')
     }
     throw fetchError
   }
@@ -540,52 +540,37 @@ export async function POST(req: Request) {
         
         console.log(`Transcript ready for AI processing: ${transcript.length} characters`)
         
-        // Check if user wants auto-processing (check for autoProcess parameter)
+        // ALWAYS return transcript immediately - don't wait for AI processing
+        // This ensures fast response times. User can click "Generate AI" separately.
+        console.log("Returning transcript immediately for fast response...")
+        
+        // Check if user wants auto-processing (but don't block on it)
         const autoProcess = formData.get('autoProcess') === 'true'
         
         if (autoProcess && transcript.trim()) {
-          // Auto-process with AI immediately with timeout protection
-          console.log("Auto-processing transcript with AI...")
-          const aiStartTime = Date.now()
+          // Process AI in background - don't wait for it
+          // Return transcript immediately, AI will be processed separately
+          console.log("AI processing will happen in background (non-blocking)...")
           
-          // Add overall timeout wrapper (35 seconds total)
-          const aiProcessingPromise = processTranscriptWithAI(transcript)
-          const overallTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('AI processing timed out after 35 seconds')), 35000)
-          )
+          // Start AI processing but don't await it
+          processTranscriptWithAI(transcript).then((result) => {
+            console.log("Background AI processing completed successfully")
+          }).catch((error) => {
+            console.error("Background AI processing failed:", error)
+          })
           
-          try {
-            const result = await Promise.race([aiProcessingPromise, overallTimeoutPromise]) as any
-            const aiTime = Date.now() - aiStartTime
-            console.log(`AI processing completed in ${aiTime}ms`)
-            return NextResponse.json(result)
-          } catch (aiError: any) {
-            const aiTime = Date.now() - aiStartTime
-            console.error(`AI processing failed after ${aiTime}ms:`, aiError)
-            
-            // If timeout, return transcript immediately so user can proceed
-            if (aiError.message && aiError.message.includes('timeout')) {
-              console.log("AI timeout - returning transcript for manual processing")
-              return NextResponse.json({
-                transcript: transcript,
-                message: "File processed successfully. AI generation timed out, but you can click 'Generate AI Meeting Notes' to try again or use the transcript.",
-                error: "AI generation timed out"
-              })
-            }
-            
-            // Return transcript even if AI processing fails
-            return NextResponse.json({
-              transcript: transcript,
-              message: "File processed successfully. AI processing encountered an error, but you can still use the transcript.",
-              error: aiError.message
-            })
-          }
+          // Return transcript immediately
+          return NextResponse.json({
+            transcript: transcript,
+            message: "File processed successfully. AI meeting notes are being generated in the background. Click 'Generate AI Meeting Notes' if they don't appear automatically.",
+            processing: true
+          })
         }
         
         // Return transcript for manual processing
         return NextResponse.json({
           transcript: transcript,
-          message: "File processed successfully. Generating AI meeting notes..."
+          message: "File processed successfully. Click 'Generate AI Meeting Notes' to analyze."
         })
       } catch (error: any) {
         console.error("Error processing file:", error)
