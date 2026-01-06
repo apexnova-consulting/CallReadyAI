@@ -36,12 +36,17 @@ export default function MeetingNotesPage() {
   const [result, setResult] = useState<MeetingNotesResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [recordingTime, setRecordingTime] = useState(0)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [inputMode, setInputMode] = useState<'record' | 'upload'>('record')
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recognitionRef = useRef<any>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     // Initialize speech recognition once on mount
@@ -401,9 +406,125 @@ Please format your response clearly with sections for Summary, Key Points, Actio
     }
   }
 
+  const handleFileUpload = async (file: File) => {
+    // Validate file type
+    const validAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/m4a', 'audio/ogg']
+    const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
+    const validPdfTypes = ['application/pdf']
+    
+    const isValidType = 
+      validAudioTypes.includes(file.type) ||
+      validVideoTypes.includes(file.type) ||
+      validPdfTypes.includes(file.type) ||
+      file.name.toLowerCase().endsWith('.mp3') ||
+      file.name.toLowerCase().endsWith('.wav') ||
+      file.name.toLowerCase().endsWith('.m4a') ||
+      file.name.toLowerCase().endsWith('.mp4') ||
+      file.name.toLowerCase().endsWith('.mov') ||
+      file.name.toLowerCase().endsWith('.pdf')
+
+    if (!isValidType) {
+      setError('Please upload a valid audio file (MP3, WAV, M4A), video file (MP4, MOV), or PDF document.')
+      return
+    }
+
+    // Check file size (max 100MB)
+    const maxSize = 100 * 1024 * 1024 // 100MB
+    if (file.size > maxSize) {
+      setError('File size must be less than 100MB. Please upload a smaller file.')
+      return
+    }
+
+    setUploadedFile(file)
+    setIsUploading(true)
+    setUploadProgress(0)
+    setError(null)
+    setTranscript('')
+    setResult(null)
+
+    // Simulate progress (since we can't easily track actual upload progress)
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) return prev
+        return prev + 10
+      })
+    }, 200)
+
+    let uploadError: Error | null = null
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('fileType', file.type || 'application/octet-stream')
+
+      const response = await fetch('/api/meeting-notes/process', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      if (!response.ok) {
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch (e) {
+          const errorText = await response.text()
+          throw new Error(`Server error (${response.status}): ${errorText || 'Unknown error'}`)
+        }
+        
+        const errorMessage = errorData.error || errorData.details || 'Failed to process file'
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
+      }
+
+      // Set transcript from uploaded file processing
+      if (data.transcript) {
+        setTranscript(data.transcript)
+      }
+
+      // If we got a full result (from direct processing), set it
+      if (data.summary) {
+        setResult(data)
+      } else if (data.message) {
+        // File was processed, transcript is ready for AI analysis
+        // Transcript is already set above
+      }
+    } catch (error: any) {
+      uploadError = error
+      clearInterval(progressInterval)
+      console.error('Error uploading file:', error)
+      setError(error.message || 'Failed to process file. Please try again.')
+      setUploadProgress(0)
+    } finally {
+      setIsUploading(false)
+      // Keep progress at 100 if successful, reset if error
+      if (!uploadError) {
+        setUploadProgress(100)
+      }
+    }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      handleFileUpload(file)
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const processTranscript = async () => {
-    if (!transcript.trim()) {
-      setError('No transcript available. Please record a meeting first.')
+    if (!transcript.trim() && !uploadedFile) {
+      setError('No transcript available. Please record a meeting or upload a file first.')
       return
     }
 
@@ -411,6 +532,18 @@ Please format your response clearly with sections for Summary, Key Points, Actio
     setError(null)
 
     try {
+      // If we have an uploaded file but no transcript yet, process the file first
+      if (uploadedFile && !transcript.trim()) {
+        await handleFileUpload(uploadedFile)
+        // Wait a bit for the file to be processed
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        if (!transcript.trim()) {
+          setError('Failed to extract transcript from file. Please try again.')
+          setIsProcessing(false)
+          return
+        }
+      }
+
       const response = await fetch('/api/meeting-notes/process', {
         method: 'POST',
         headers: {
@@ -570,12 +703,199 @@ Please help me analyze this meeting and answer any questions I have.`
           Meeting Notes
         </h1>
         <p style={{ color: '#6b7280', fontSize: '1rem' }}>
-          Record your meeting and get AI-powered notes, summaries, and follow-up emails. 
+          Record your meeting, upload a recording, or upload PDF notes and get AI-powered summaries, key points, and follow-up emails. 
           Works with Zoom, Microsoft Teams, Google Meet, and any video conferencing platform.
         </p>
       </div>
 
+      {/* Input Mode Selector */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '0.75rem',
+        padding: '1.5rem',
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        marginBottom: '2rem'
+      }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <button
+            onClick={() => {
+              setInputMode('record')
+              setUploadedFile(null)
+              setTranscript('')
+              setResult(null)
+            }}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: inputMode === 'record' ? '#667eea' : '#f3f4f6',
+              color: inputMode === 'record' ? 'white' : '#374151',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            🎤 Record Live
+          </button>
+          <button
+            onClick={() => {
+              setInputMode('upload')
+              setTranscript('')
+              setResult(null)
+              stopRecording()
+            }}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: inputMode === 'upload' ? '#667eea' : '#f3f4f6',
+              color: inputMode === 'upload' ? 'white' : '#374151',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📁 Upload File
+          </button>
+        </div>
+
+        {inputMode === 'upload' && (
+          <div style={{
+            border: '2px dashed #d1d5db',
+            borderRadius: '0.5rem',
+            padding: '2rem',
+            textAlign: 'center',
+            backgroundColor: '#f9fafb',
+            transition: 'all 0.2s'
+          }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.currentTarget.style.borderColor = '#667eea'
+            e.currentTarget.style.backgroundColor = '#f0f4ff'
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            e.currentTarget.style.borderColor = '#d1d5db'
+            e.currentTarget.style.backgroundColor = '#f9fafb'
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.currentTarget.style.borderColor = '#d1d5db'
+            e.currentTarget.style.backgroundColor = '#f9fafb'
+            const file = e.dataTransfer.files[0]
+            if (file) {
+              handleFileUpload(file)
+            }
+          }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,video/*,.pdf"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            {isUploading ? (
+              <div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{
+                    width: '100%',
+                    height: '8px',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${uploadProgress}%`,
+                      height: '100%',
+                      backgroundColor: '#667eea',
+                      transition: 'width 0.3s'
+                    }} />
+                  </div>
+                </div>
+                <p style={{ color: '#6b7280' }}>Processing file... This may take a moment.</p>
+              </div>
+            ) : uploadedFile ? (
+              <div>
+                <p style={{ color: '#10b981', fontWeight: '600', marginBottom: '0.5rem' }}>
+                  ✓ {uploadedFile.name}
+                </p>
+                <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                <button
+                  onClick={() => {
+                    setUploadedFile(null)
+                    setTranscript('')
+                    setResult(null)
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = ''
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    marginRight: '0.5rem'
+                  }}
+                >
+                  Remove File
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#f3f4f6',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Change File
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</p>
+                <p style={{ color: '#374151', fontWeight: '600', marginBottom: '0.5rem' }}>
+                  Drop a file here or click to browse
+                </p>
+                <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  Supports audio (MP3, WAV, M4A), video (MP4, MOV), or PDF files up to 100MB
+                </p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Choose File
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recording Controls */}
+      {inputMode === 'record' && (
       <div style={{
         backgroundColor: 'white',
         borderRadius: '0.75rem',
@@ -769,6 +1089,58 @@ Please help me analyze this meeting and answer any questions I have.`
           )}
         </div>
       </div>
+      )}
+
+      {/* Upload Mode - Show transcript and process button */}
+      {inputMode === 'upload' && uploadedFile && transcript && (
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '0.75rem',
+          padding: '2rem',
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+            <button
+              onClick={processTranscript}
+              disabled={isProcessing}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: isProcessing ? '#9ca3af' : '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+            >
+              {isProcessing ? 'Processing...' : '🤖 Generate AI Meeting Notes'}
+            </button>
+          </div>
+
+          {/* Transcript Display */}
+          <div style={{
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.5rem',
+            padding: '1.5rem',
+            minHeight: '200px',
+            maxHeight: '400px',
+            overflowY: 'auto',
+            border: '1px solid #e5e7eb'
+          }}>
+            <p style={{ 
+              color: '#111827', 
+              lineHeight: '1.6',
+              whiteSpace: 'pre-wrap',
+              margin: 0
+            }}>
+              {transcript}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Results */}
       {result && (
