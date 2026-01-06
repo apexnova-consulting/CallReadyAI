@@ -1221,6 +1221,37 @@ Please help me analyze this meeting and answer any questions I have.`
             </button>
           </div>
 
+          {/* Status Message */}
+          {isProcessing && (
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '0.5rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem'
+            }}>
+              <div style={{ 
+                width: '20px',
+                height: '20px',
+                border: '3px solid #bfdbfe',
+                borderTopColor: '#667eea',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <p style={{ 
+                color: '#1e40af', 
+                margin: 0,
+                fontSize: '0.95rem',
+                fontWeight: '500'
+              }}>
+                🤖 Generating AI meeting notes... This may take a minute for longer files.
+              </p>
+            </div>
+          )}
+
           {/* Transcript Display */}
           <div style={{
             backgroundColor: '#f9fafb',
@@ -1257,7 +1288,7 @@ Please help me analyze this meeting and answer any questions I have.`
                   margin: 0,
                   fontSize: '0.95rem'
                 }}>
-                  Processing file... This may take a moment for large files.
+                  Processing file and generating AI meeting notes... This may take a moment for large files.
                 </p>
                 <p style={{ 
                   color: '#9ca3af', 
