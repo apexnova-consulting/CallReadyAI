@@ -488,17 +488,19 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       if (data.transcript) {
         console.log("Setting transcript from file upload, length:", data.transcript.length)
         setTranscript(data.transcript)
+        // Show success message
+        if (data.message) {
+          // Optionally show a brief success notification
+          console.log("File processed successfully:", data.message)
+        }
       } else {
         console.warn("No transcript in response:", data)
+        setError("File uploaded but no transcript was generated. Please try again or check if the file contains audio/video content.")
       }
 
       // If we got a full result (from direct processing), set it
       if (data.summary) {
         setResult(data)
-      } else if (data.message) {
-        // File was processed, transcript is ready for AI analysis
-        // Transcript is already set above
-        console.log("File processed successfully, transcript ready for AI analysis")
       }
     } catch (error: any) {
       uploadError = error
