@@ -64,28 +64,54 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     console.log("Processing PDF file...")
     try {
+      // Validate file size first
+      if (file.size === 0) {
+        throw new Error("PDF file is empty")
+      }
+      
       // Use dynamic import to avoid webpack bundling issues
       const pdfParse = (await import('pdf-parse')).default
       const arrayBuffer = await file.arrayBuffer()
+      
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error("PDF file data is empty")
+      }
+      
       const buffer = Buffer.from(arrayBuffer)
       
       // Add timeout for PDF parsing (30 seconds max)
       const parsePromise = pdfParse(buffer)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('PDF parsing timed out')), 30000)
+        setTimeout(() => reject(new Error('PDF parsing timed out after 30 seconds')), 30000)
       )
       
       const data = await Promise.race([parsePromise, timeoutPromise]) as any
+      
+      if (!data || !data.text) {
+        throw new Error("PDF parsing returned no text content")
+      }
+      
       const text = data.text || ''
       
       if (!text || !text.trim()) {
-        throw new Error("PDF appears to be empty or contains no extractable text")
+        throw new Error("PDF appears to be empty or contains no extractable text. The PDF may contain only images or be password-protected.")
       }
       
+      console.log(`PDF parsed successfully, extracted ${text.length} characters`)
       return text
     } catch (error: any) {
       console.error("PDF parsing error:", error)
-      throw new Error(`Failed to parse PDF: ${error.message || 'Unknown error'}`)
+      const errorMsg = error.message || 'Unknown error'
+      
+      if (errorMsg.includes('timeout')) {
+        throw new Error(`PDF parsing timed out. The file may be too large or complex.`)
+      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+        throw new Error(`PDF is password-protected. Please remove the password and try again.`)
+      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid')) {
+        throw new Error(`PDF appears to be corrupted or invalid. Please try a different file.`)
+      } else {
+        throw new Error(`Failed to parse PDF: ${errorMsg}`)
+      }
     }
   }
 
@@ -301,26 +327,44 @@ Format your response as JSON with the following structure:
 MEETING TRANSCRIPT:
 ${transcript}`
 
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+  // Use faster model for quicker responses
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
   const apiKey = process.env.GEMINI_API_KEY || ''
   
   console.log("Calling Gemini API for analysis...")
+  console.log(`Transcript length: ${transcript.length} characters`)
   
-  const geminiResponse = await fetch(apiUrl, {
+  // Optimize prompt - make it more concise for faster processing
+  const optimizedPrompt = `Analyze this meeting transcript and return JSON only:
+
+{
+  "summary": "2-3 paragraph meeting summary",
+  "keyPoints": ["point1", "point2", "point3", "point4", "point5"],
+  "actionItems": ["action1", "action2", "action3"],
+  "speakers": [{"id": "speaker1", "name": "Name", "role": "Role", "quotes": ["quote1"]}],
+  "transcriptBySpeaker": [{"speaker": "Name", "text": "transcript"}],
+  "followUpEmail": {"subject": "Subject", "body": "Email body under 200 words"}
+}
+
+TRANSCRIPT:
+${transcript.substring(0, 50000)}${transcript.length > 50000 ? '\n[Transcript truncated for processing...]' : ''}`
+  
+  const geminiResponse = await fetch(`${apiUrl}?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-goog-api-key': apiKey,
     },
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `${systemPrompt}\n\n${userPrompt}`
+          text: optimizedPrompt
         }]
       }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 2000,
+        maxOutputTokens: 4096, // Increased for better responses
+        topP: 0.95,
+        topK: 40,
       }
     })
   })
@@ -424,10 +468,18 @@ export async function POST(req: Request) {
       try {
         console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
         
+        // Validate file before processing
+        if (!file || file.size === 0) {
+          throw new Error("File is empty or invalid")
+        }
+        
         // Add timeout wrapper for file processing (9 minutes to allow for large files)
         // Use a more aggressive timeout for PDFs (2 minutes) vs audio/video (9 minutes)
         const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-        const timeoutDuration = isPdf ? 2 * 60 * 1000 : 9 * 60 * 1000
+        const isZip = file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || file.name.toLowerCase().endsWith('.zip')
+        const timeoutDuration = isPdf ? 2 * 60 * 1000 : isZip ? 5 * 60 * 1000 : 9 * 60 * 1000
+        
+        console.log(`Starting file extraction with ${timeoutDuration / 1000}s timeout...`)
         
         const processingPromise = extractTranscriptFromFile(file)
         const timeoutPromise = new Promise((_, reject) => 
@@ -442,10 +494,10 @@ export async function POST(req: Request) {
         
         console.log("Transcript extracted from file, length:", transcript.length)
         
-        // Truncate very long transcripts to avoid API limits (keep first 100k characters)
-        if (transcript.length > 100000) {
-          console.warn(`Transcript is very long (${transcript.length} chars), truncating to 100k for AI processing`)
-          transcript = transcript.substring(0, 100000) + "\n\n[Transcript truncated due to length...]"
+        // Truncate very long transcripts to avoid API limits (keep first 50k characters for faster processing)
+        if (transcript.length > 50000) {
+          console.warn(`Transcript is very long (${transcript.length} chars), truncating to 50k for faster AI processing`)
+          transcript = transcript.substring(0, 50000) + "\n\n[Transcript truncated for faster processing...]"
         }
         
         // Check if user wants auto-processing (check for autoProcess parameter)
@@ -480,16 +532,25 @@ export async function POST(req: Request) {
         let errorDetails = error.message || "Unknown error"
         
         // Provide more helpful error messages
+        console.error("File processing error details:", errorDetails)
+        
         if (errorDetails.includes('timeout') || errorDetails.includes('timed out')) {
-          errorMessage = "File processing timed out. The file may be too large. Please try a smaller file (under 50MB recommended)."
-        } else if (errorDetails.includes('No transcript') || errorDetails.includes('empty')) {
-          errorMessage = "Could not extract content from the file. Please ensure the file contains audio, video, or text content."
+          errorMessage = "File processing timed out. The file may be too large. Please try a smaller file (under 50MB recommended) or split it into multiple files."
+        } else if (errorDetails.includes('No transcript') || errorDetails.includes('empty') || errorDetails.includes('no extractable')) {
+          errorMessage = "Could not extract content from the file. Please ensure the file contains audio, video, or text content. For PDFs, make sure the file has selectable text (not just images)."
         } else if (errorDetails.includes('Unsupported file type')) {
-          errorMessage = "Unsupported file type. Please upload a PDF, audio file (MP3, WAV, M4A), or video file (MP4, MOV)."
+          errorMessage = "Unsupported file type. Please upload a PDF, audio file (MP3, WAV, M4A), video file (MP4, MOV), or ZIP archive containing these files."
+        } else if (errorDetails.includes('Failed to parse PDF') || errorDetails.includes('PDF parsing')) {
+          errorMessage = "PDF parsing failed. The PDF may be corrupted, password-protected, or contain only images. Please try a different PDF or convert images to text first."
         } else if (errorDetails.includes('quota') || errorDetails.includes('429')) {
           errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
         } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
           errorMessage = "AI service authentication failed. Please contact support."
+        } else if (errorDetails.includes('File is empty')) {
+          errorMessage = "The uploaded file is empty. Please upload a valid file with content."
+        } else {
+          // Generic error with more context
+          errorMessage = `Failed to process file: ${errorDetails}. Please check the file format and try again.`
         }
         
         return NextResponse.json(
