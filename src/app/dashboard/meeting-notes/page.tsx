@@ -40,6 +40,7 @@ export default function MeetingNotesPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [inputMode, setInputMode] = useState<'record' | 'upload'>('record')
+  const [autoProcessEnabled, setAutoProcessEnabled] = useState(true) // Auto-process by default
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -109,22 +110,37 @@ export default function MeetingNotesPage() {
       
       recognition.onend = () => {
         console.log('Speech recognition ended')
-        // Auto-restart if still recording
+        // Auto-restart if still recording - Web Speech API times out after ~60 seconds
         if (isRecording && recognitionRef.current) {
           try {
-            console.log('Auto-restarting speech recognition...')
+            console.log('Auto-restarting speech recognition (Web Speech API timeout)...')
+            // Use a longer delay to ensure clean restart
             setTimeout(() => {
               if (isRecording && recognitionRef.current) {
-                recognitionRef.current.start()
+                try {
+                  recognitionRef.current.start()
+                  console.log('Speech recognition restarted successfully')
+                } catch (restartError: any) {
+                  if (restartError.message && restartError.message.includes('already started')) {
+                    console.log('Recognition already running, continuing...')
+                  } else {
+                    console.error('Failed to restart recognition:', restartError)
+                    // Try again after a longer delay
+                    setTimeout(() => {
+                      if (isRecording && recognitionRef.current) {
+                        try {
+                          recognitionRef.current.start()
+                        } catch (e) {
+                          console.error('Second restart attempt failed:', e)
+                        }
+                      }
+                    }, 1000)
+                  }
+                }
               }
-            }, 100)
+            }, 200)
           } catch (e: any) {
-            console.error('Failed to restart recognition:', e)
-            if (e.message && e.message.includes('already started')) {
-              // Recognition already running, that's fine
-              return
-            }
-            setError(`Failed to restart recognition: ${e.message}`)
+            console.error('Failed to schedule recognition restart:', e)
           }
         }
       }
@@ -447,31 +463,31 @@ Please format your response clearly with sections for Summary, Key Points, Actio
   }
 
   const handleFileUpload = async (file: File) => {
-    // Validate file type
-    const validAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/m4a', 'audio/ogg']
-    const validVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-    const validPdfTypes = ['application/pdf']
+    // Support all common audio/video formats including Zoom recordings
+    const validAudioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.flac', '.aac', '.wma', '.opus']
+    const validVideoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv']
+    const validPdfExtensions = ['.pdf']
+    
+    const fileName = file.name.toLowerCase()
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.'))
     
     const isValidType = 
-      validAudioTypes.includes(file.type) ||
-      validVideoTypes.includes(file.type) ||
-      validPdfTypes.includes(file.type) ||
-      file.name.toLowerCase().endsWith('.mp3') ||
-      file.name.toLowerCase().endsWith('.wav') ||
-      file.name.toLowerCase().endsWith('.m4a') ||
-      file.name.toLowerCase().endsWith('.mp4') ||
-      file.name.toLowerCase().endsWith('.mov') ||
-      file.name.toLowerCase().endsWith('.pdf')
+      file.type.startsWith('audio/') ||
+      file.type.startsWith('video/') ||
+      file.type === 'application/pdf' ||
+      validAudioExtensions.includes(fileExtension) ||
+      validVideoExtensions.includes(fileExtension) ||
+      validPdfExtensions.includes(fileExtension)
 
     if (!isValidType) {
-      setError('Please upload a valid audio file (MP3, WAV, M4A), video file (MP4, MOV), or PDF document.')
+      setError(`Unsupported file type. Please upload an audio file (${validAudioExtensions.join(', ')}), video file (${validVideoExtensions.join(', ')}), or PDF document.`)
       return
     }
 
-    // Check file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024 // 100MB
+    // Increased file size limit to 500MB for longer meetings
+    const maxSize = 500 * 1024 * 1024 // 500MB
     if (file.size > maxSize) {
-      setError('File size must be less than 100MB. Please upload a smaller file.')
+      setError('File size must be less than 500MB. Please upload a smaller file or compress the recording.')
       return
     }
 
@@ -496,10 +512,11 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       const formData = new FormData()
       formData.append('file', file)
       formData.append('fileType', file.type || 'application/octet-stream')
+      formData.append('autoProcess', autoProcessEnabled ? 'true' : 'false') // Auto-process by default
 
-      // Add timeout for large files (5 minutes max)
+      // Add timeout for large files (10 minutes max for transcription + AI processing)
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000) // 5 minutes
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000) // 10 minutes
 
       const response = await fetch('/api/meeting-notes/process', {
         method: 'POST',
@@ -534,19 +551,18 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       if (data.transcript) {
         console.log("Setting transcript from file upload, length:", data.transcript.length)
         setTranscript(data.transcript)
-        // Show success message
-        if (data.message) {
-          // Optionally show a brief success notification
-          console.log("File processed successfully:", data.message)
+        
+        // If we got a full result (from auto-processing), set it immediately
+        if (data.summary) {
+          console.log("AI meeting notes generated automatically!")
+          setResult(data)
+        } else if (data.message && !data.error) {
+          // Transcript ready, AI processing will happen automatically via API
+          console.log("File processed, waiting for AI analysis...")
         }
       } else {
         console.warn("No transcript in response:", data)
         setError("File uploaded but no transcript was generated. Please try again or check if the file contains audio/video content.")
-      }
-
-      // If we got a full result (from direct processing), set it
-      if (data.summary) {
-        setResult(data)
       }
     } catch (error: any) {
       uploadError = error

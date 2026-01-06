@@ -21,11 +21,12 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
     return data.text
   }
 
-  // Check if it's audio or video
-  const isAudio = fileType.startsWith('audio/') || 
-                  ['.mp3', '.wav', '.m4a', '.ogg', '.webm'].some(ext => fileName.endsWith(ext))
-  const isVideo = fileType.startsWith('video/') || 
-                  ['.mp4', '.mov', '.avi', '.webm'].some(ext => fileName.endsWith(ext))
+  // Check if it's audio or video - support all common formats including Zoom
+  const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.flac', '.aac', '.wma', '.opus', '.m4b']
+  const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv', '.ts', '.mts']
+  
+  const isAudio = fileType.startsWith('audio/') || audioExtensions.some(ext => fileName.endsWith(ext))
+  const isVideo = fileType.startsWith('video/') || videoExtensions.some(ext => fileName.endsWith(ext))
 
   if (isAudio || isVideo) {
     console.log("Processing audio/video file for transcription...")
@@ -47,14 +48,27 @@ async function transcribeAudioVideo(file: File): Promise<string> {
   const buffer = Buffer.from(arrayBuffer)
   const base64Data = buffer.toString('base64')
 
-  // Determine MIME type
-  const mimeType = file.type || 
-    (file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' :
-     file.name.toLowerCase().endsWith('.wav') ? 'audio/wav' :
-     file.name.toLowerCase().endsWith('.m4a') ? 'audio/mp4' :
-     file.name.toLowerCase().endsWith('.mp4') ? 'video/mp4' :
-     file.name.toLowerCase().endsWith('.mov') ? 'video/quicktime' :
-     'audio/mpeg') // default
+  // Determine MIME type with better detection
+  const fileName = file.name.toLowerCase()
+  let mimeType = file.type
+  
+  if (!mimeType || mimeType === 'application/octet-stream') {
+    // Detect from extension
+    if (fileName.endsWith('.mp3')) mimeType = 'audio/mpeg'
+    else if (fileName.endsWith('.wav')) mimeType = 'audio/wav'
+    else if (fileName.endsWith('.m4a') || fileName.endsWith('.m4b')) mimeType = 'audio/mp4'
+    else if (fileName.endsWith('.mp4')) mimeType = 'video/mp4'
+    else if (fileName.endsWith('.mov')) mimeType = 'video/quicktime'
+    else if (fileName.endsWith('.avi')) mimeType = 'video/x-msvideo'
+    else if (fileName.endsWith('.webm')) mimeType = fileType.startsWith('audio/') ? 'audio/webm' : 'video/webm'
+    else if (fileName.endsWith('.mkv')) mimeType = 'video/x-matroska'
+    else if (fileName.endsWith('.flv')) mimeType = 'video/x-flv'
+    else if (fileName.endsWith('.wmv')) mimeType = 'video/x-ms-wmv'
+    else if (fileName.endsWith('.m4v')) mimeType = 'video/mp4'
+    else if (fileName.endsWith('.3gp')) mimeType = 'video/3gpp'
+    else if (fileName.endsWith('.ogg') || fileName.endsWith('.ogv')) mimeType = fileType.startsWith('audio/') ? 'audio/ogg' : 'video/ogg'
+    else mimeType = 'video/mp4' // Default for video files
+  }
 
   try {
     // Use Gemini 1.5 Pro which supports audio/video transcription
@@ -80,7 +94,7 @@ async function transcribeAudioVideo(file: File): Promise<string> {
         }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 32768, // Increased for longer transcripts
         }
       })
     })
@@ -133,7 +147,7 @@ async function transcribeAudioVideo(file: File): Promise<string> {
           }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 8192,
+            maxOutputTokens: 32768, // Increased for longer transcripts
           }
         })
       })
@@ -342,10 +356,10 @@ export async function POST(req: Request) {
       try {
         console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
         
-        // Add timeout wrapper for file processing (4.5 minutes to be safe)
+        // Add timeout wrapper for file processing (9 minutes to allow for large files)
         const processingPromise = extractTranscriptFromFile(file)
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('File processing timed out. The file may be too large or complex.')), 4.5 * 60 * 1000)
+          setTimeout(() => reject(new Error('File processing timed out. The file may be too large or complex.')), 9 * 60 * 1000)
         )
         
         transcript = await Promise.race([processingPromise, timeoutPromise]) as string
@@ -356,10 +370,30 @@ export async function POST(req: Request) {
         
         console.log("Transcript extracted from file, length:", transcript.length)
         
-        // Return transcript first, user can then click "Generate AI" to process
+        // Check if user wants auto-processing (check for autoProcess parameter)
+        const autoProcess = formData.get('autoProcess') === 'true'
+        
+        if (autoProcess && transcript.trim()) {
+          // Auto-process with AI immediately
+          console.log("Auto-processing transcript with AI...")
+          try {
+            const result = await processTranscriptWithAI(transcript)
+            return NextResponse.json(result)
+          } catch (aiError: any) {
+            console.error("Error in auto-processing:", aiError)
+            // Return transcript even if AI processing fails
+            return NextResponse.json({
+              transcript: transcript,
+              message: "File processed successfully. AI processing encountered an error, but you can still use the transcript.",
+              error: aiError.message
+            })
+          }
+        }
+        
+        // Return transcript for manual processing
         return NextResponse.json({
           transcript: transcript,
-          message: "File processed successfully. Click 'Generate AI Meeting Notes' to analyze."
+          message: "File processed successfully. Generating AI meeting notes..."
         })
       } catch (error: any) {
         console.error("Error processing file:", error)
