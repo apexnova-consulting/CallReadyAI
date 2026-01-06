@@ -486,7 +486,10 @@ Please format your response clearly with sections for Summary, Key Points, Actio
 
       // Set transcript from uploaded file processing
       if (data.transcript) {
+        console.log("Setting transcript from file upload, length:", data.transcript.length)
         setTranscript(data.transcript)
+      } else {
+        console.warn("No transcript in response:", data)
       }
 
       // If we got a full result (from direct processing), set it
@@ -495,6 +498,7 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       } else if (data.message) {
         // File was processed, transcript is ready for AI analysis
         // Transcript is already set above
+        console.log("File processed successfully, transcript ready for AI analysis")
       }
     } catch (error: any) {
       uploadError = error
@@ -1092,7 +1096,7 @@ Please help me analyze this meeting and answer any questions I have.`
       )}
 
       {/* Upload Mode - Show transcript and process button */}
-      {inputMode === 'upload' && uploadedFile && transcript && (
+      {inputMode === 'upload' && uploadedFile && !isUploading && (
         <div style={{
           backgroundColor: 'white',
           borderRadius: '0.75rem',
@@ -1100,23 +1104,50 @@ Please help me analyze this meeting and answer any questions I have.`
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           marginBottom: '2rem'
         }}>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={processTranscript}
-              disabled={isProcessing}
+              disabled={isProcessing || !transcript || !transcript.trim()}
               style={{
                 padding: '0.75rem 1.5rem',
-                backgroundColor: isProcessing ? '#9ca3af' : '#667eea',
+                backgroundColor: (isProcessing || !transcript || !transcript.trim()) ? '#9ca3af' : '#667eea',
                 color: 'white',
                 border: 'none',
                 borderRadius: '0.5rem',
                 fontSize: '1rem',
                 fontWeight: '600',
-                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                cursor: (isProcessing || !transcript || !transcript.trim()) ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s'
               }}
             >
               {isProcessing ? 'Processing...' : '🤖 Generate AI Meeting Notes'}
+            </button>
+            <button
+              onClick={openGeminiWithTranscript}
+              disabled={!transcript || !transcript.trim()}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: (!transcript || !transcript.trim()) ? '#f3f4f6' : '#f3f4f6',
+                color: (!transcript || !transcript.trim()) ? '#9ca3af' : '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: (!transcript || !transcript.trim()) ? 'not-allowed' : 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (transcript && transcript.trim()) {
+                  e.currentTarget.style.backgroundColor = '#e5e7eb'
+                }
+              }}
+              onMouseOut={(e) => {
+                if (transcript && transcript.trim()) {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6'
+                }
+              }}
+            >
+              🤖 Open in Gemini
             </button>
           </div>
 
@@ -1130,14 +1161,24 @@ Please help me analyze this meeting and answer any questions I have.`
             overflowY: 'auto',
             border: '1px solid #e5e7eb'
           }}>
-            <p style={{ 
-              color: '#111827', 
-              lineHeight: '1.6',
-              whiteSpace: 'pre-wrap',
-              margin: 0
-            }}>
-              {transcript}
-            </p>
+            {transcript ? (
+              <p style={{ 
+                color: '#111827', 
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+                margin: 0
+              }}>
+                {transcript}
+              </p>
+            ) : (
+              <p style={{ 
+                color: '#9ca3af', 
+                fontStyle: 'italic',
+                margin: 0
+              }}>
+                Transcript will appear here after processing...
+              </p>
+            )}
           </div>
         </div>
       )}

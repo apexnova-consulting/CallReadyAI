@@ -57,8 +57,10 @@ async function transcribeAudioVideo(file: File): Promise<string> {
      'audio/mpeg') // default
 
   try {
-    // Use Gemini's audio transcription API
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent`
+    // Use Gemini 1.5 Pro which supports audio/video transcription
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`
+    
+    console.log(`Transcribing ${mimeType} file, size: ${buffer.length} bytes`)
     
     const response = await fetch(`${apiUrl}?key=${apiKey}`, {
       method: 'POST',
@@ -68,7 +70,7 @@ async function transcribeAudioVideo(file: File): Promise<string> {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: "Please transcribe this audio/video file. Provide a complete, accurate transcript of all spoken words."
+            text: "Please transcribe this audio/video file completely. Provide a word-for-word transcript of all spoken content. Include speaker changes if detectable."
           }, {
             inlineData: {
               mimeType: mimeType,
@@ -86,22 +88,33 @@ async function transcribeAudioVideo(file: File): Promise<string> {
     if (!response.ok) {
       const errorText = await response.text()
       console.error("Gemini transcription error:", errorText)
-      throw new Error(`Transcription failed: ${response.status}`)
+      let errorMessage = `Transcription failed: ${response.status}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorMessage = errorJson.error?.message || errorJson.message || errorMessage
+      } catch (e) {
+        // Use errorText as is
+      }
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
+    console.log("Gemini transcription response received")
     const transcript = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
     
     if (!transcript.trim()) {
-      throw new Error("No transcript generated from audio/video file")
+      console.error("Empty transcript from Gemini:", JSON.stringify(data, null, 2))
+      throw new Error("No transcript generated from audio/video file. The file may be too long, corrupted, or contain no speech.")
     }
 
+    console.log(`Transcript generated, length: ${transcript.length} characters`)
     return transcript
   } catch (error: any) {
     console.error("Error transcribing audio/video:", error)
-    // Fallback: try with the regular generateContent endpoint
+    // Fallback: try with gemini-1.5-flash
     try {
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`
+      console.log("Trying fallback model: gemini-1.5-flash")
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
       const response = await fetch(`${apiUrl}?key=${apiKey}`, {
         method: 'POST',
         headers: {
@@ -110,7 +123,7 @@ async function transcribeAudioVideo(file: File): Promise<string> {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: "Transcribe this audio/video file completely."
+              text: "Transcribe this audio/video file completely. Provide all spoken words."
             }, {
               inlineData: {
                 mimeType: mimeType,
@@ -126,6 +139,8 @@ async function transcribeAudioVideo(file: File): Promise<string> {
       })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Fallback transcription error:", errorText)
         throw new Error(`Transcription failed: ${response.status}`)
       }
 
@@ -136,8 +151,10 @@ async function transcribeAudioVideo(file: File): Promise<string> {
         throw new Error("No transcript generated from audio/video file")
       }
 
+      console.log(`Fallback transcript generated, length: ${transcript.length} characters`)
       return transcript
     } catch (fallbackError: any) {
+      console.error("Fallback transcription also failed:", fallbackError)
       throw new Error(`Failed to transcribe file: ${fallbackError.message || 'Unknown error'}`)
     }
   }
