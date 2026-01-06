@@ -304,9 +304,49 @@ export default function MeetingNotesPage() {
   }
 
   const openGeminiWithTranscript = async () => {
-    if (!transcript.trim()) {
-      setError('No transcript available. Please record a meeting first.')
-      return
+    // If transcript is available, use it. Otherwise, create a prompt for the uploaded file
+    if (!transcript || !transcript.trim()) {
+      if (uploadedFile) {
+        // File is uploaded but transcript not ready yet
+        const geminiPrompt = `I've uploaded a ${uploadedFile.type || 'file'} file (${uploadedFile.name}) for meeting notes analysis. 
+
+The file is currently being processed. Please help me analyze this meeting once the transcript is ready.
+
+File details:
+- Name: ${uploadedFile.name}
+- Size: ${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+- Type: ${uploadedFile.type || 'Unknown'}
+
+I'll paste the transcript here once processing is complete.`
+
+        try {
+          await navigator.clipboard.writeText(geminiPrompt)
+          const notification = document.createElement('div')
+          notification.textContent = '✅ Opening Gemini... You can paste the transcript once processing completes.'
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f59e0b;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10000;
+            font-weight: 600;
+            max-width: 300px;
+          `
+          document.body.appendChild(notification)
+          setTimeout(() => notification.remove(), 4000)
+          window.open('https://gemini.google.com/app', '_blank')
+          return
+        } catch (error) {
+          console.error('Error:', error)
+        }
+      } else {
+        setError('No transcript or file available. Please record a meeting or upload a file first.')
+        return
+      }
     }
 
     // Create a comprehensive prompt for Gemini
@@ -457,11 +497,17 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       formData.append('file', file)
       formData.append('fileType', file.type || 'application/octet-stream')
 
+      // Add timeout for large files (5 minutes max)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000) // 5 minutes
+
       const response = await fetch('/api/meeting-notes/process', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       })
 
+      clearTimeout(timeoutId)
       clearInterval(progressInterval)
       setUploadProgress(100)
 
@@ -506,7 +552,15 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       uploadError = error
       clearInterval(progressInterval)
       console.error('Error uploading file:', error)
-      setError(error.message || 'Failed to process file. Please try again.')
+      
+      let errorMessage = 'Failed to process file. Please try again.'
+      if (error.name === 'AbortError') {
+        errorMessage = 'File processing timed out. The file may be too large. Please try a smaller file or contact support.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
       setUploadProgress(0)
     } finally {
       setIsUploading(false)
@@ -1126,30 +1180,28 @@ Please help me analyze this meeting and answer any questions I have.`
             </button>
             <button
               onClick={openGeminiWithTranscript}
-              disabled={!transcript || !transcript.trim()}
+              disabled={false}
               style={{
                 padding: '0.75rem 1.5rem',
-                backgroundColor: (!transcript || !transcript.trim()) ? '#f3f4f6' : '#f3f4f6',
-                color: (!transcript || !transcript.trim()) ? '#9ca3af' : '#374151',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
                 border: '1px solid #d1d5db',
                 borderRadius: '0.5rem',
                 fontSize: '1rem',
                 fontWeight: '600',
-                cursor: (!transcript || !transcript.trim()) ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s'
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                opacity: (!transcript || !transcript.trim()) ? 0.7 : 1
               }}
               onMouseOver={(e) => {
-                if (transcript && transcript.trim()) {
-                  e.currentTarget.style.backgroundColor = '#e5e7eb'
-                }
+                e.currentTarget.style.backgroundColor = '#e5e7eb'
               }}
               onMouseOut={(e) => {
-                if (transcript && transcript.trim()) {
-                  e.currentTarget.style.backgroundColor = '#f3f4f6'
-                }
+                e.currentTarget.style.backgroundColor = '#f3f4f6'
               }}
+              title={(!transcript || !transcript.trim()) ? 'Opens Gemini. Transcript will be available once processing completes.' : 'Open transcript in Google Gemini'}
             >
-              🤖 Open in Gemini
+              🤖 Open in Gemini {(!transcript || !transcript.trim()) && '(Processing...)'}
             </button>
           </div>
 
@@ -1173,13 +1225,32 @@ Please help me analyze this meeting and answer any questions I have.`
                 {transcript}
               </p>
             ) : (
-              <p style={{ 
-                color: '#9ca3af', 
-                fontStyle: 'italic',
-                margin: 0
-              }}>
-                Transcript will appear here after processing...
-              </p>
+              <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                <div style={{ 
+                  display: 'inline-block',
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid #e5e7eb',
+                  borderTopColor: '#667eea',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginBottom: '1rem'
+                }} />
+                <p style={{ 
+                  color: '#6b7280', 
+                  margin: 0,
+                  fontSize: '0.95rem'
+                }}>
+                  Processing file... This may take a moment for large files.
+                </p>
+                <p style={{ 
+                  color: '#9ca3af', 
+                  margin: '0.5rem 0 0 0',
+                  fontSize: '0.875rem'
+                }}>
+                  You can click "Open in Gemini" to prepare while waiting.
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -1504,6 +1575,14 @@ Please help me analyze this meeting and answer any questions I have.`
           }
           50% {
             opacity: 0.5;
+          }
+        }
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
           }
         }
       `}</style>

@@ -340,7 +340,20 @@ export async function POST(req: Request) {
       }
 
       try {
-        transcript = await extractTranscriptFromFile(file)
+        console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
+        
+        // Add timeout wrapper for file processing (4.5 minutes to be safe)
+        const processingPromise = extractTranscriptFromFile(file)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('File processing timed out. The file may be too large or complex.')), 4.5 * 60 * 1000)
+        )
+        
+        transcript = await Promise.race([processingPromise, timeoutPromise]) as string
+        
+        if (!transcript || !transcript.trim()) {
+          throw new Error("No transcript was extracted from the file. The file may be empty, corrupted, or in an unsupported format.")
+        }
+        
         console.log("Transcript extracted from file, length:", transcript.length)
         
         // Return transcript first, user can then click "Generate AI" to process
@@ -350,10 +363,27 @@ export async function POST(req: Request) {
         })
       } catch (error: any) {
         console.error("Error processing file:", error)
+        
+        let errorMessage = "Failed to process file"
+        let errorDetails = error.message || "Unknown error"
+        
+        // Provide more helpful error messages
+        if (errorDetails.includes('timeout') || errorDetails.includes('timed out')) {
+          errorMessage = "File processing timed out. The file may be too large. Please try a smaller file (under 50MB recommended)."
+        } else if (errorDetails.includes('No transcript') || errorDetails.includes('empty')) {
+          errorMessage = "Could not extract content from the file. Please ensure the file contains audio, video, or text content."
+        } else if (errorDetails.includes('Unsupported file type')) {
+          errorMessage = "Unsupported file type. Please upload a PDF, audio file (MP3, WAV, M4A), or video file (MP4, MOV)."
+        } else if (errorDetails.includes('quota') || errorDetails.includes('429')) {
+          errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
+        } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
+          errorMessage = "AI service authentication failed. Please contact support."
+        }
+        
         return NextResponse.json(
           { 
-            error: "Failed to process file",
-            details: error.message 
+            error: errorMessage,
+            details: errorDetails 
           },
           { status: 500 }
         )
