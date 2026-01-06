@@ -340,8 +340,8 @@ ${transcript}`
   console.log("Calling Gemini API for analysis...")
   console.log(`Transcript length: ${transcript.length} characters`)
   
-  // Ultra-optimized prompt for fastest processing
-  const transcriptPreview = transcript.length > 30000 ? transcript.substring(0, 30000) + '\n[Truncated...]' : transcript
+  // Ultra-optimized prompt for fastest processing - reduce to 20k for even faster processing
+  const transcriptPreview = transcript.length > 20000 ? transcript.substring(0, 20000) + '\n[Truncated for speed...]' : transcript
   
   const optimizedPrompt = `Meeting transcript analysis. Return JSON only:
 
@@ -360,96 +360,120 @@ ${transcriptPreview}`
   console.log(`Calling Gemini API with ${transcriptPreview.length} char transcript...`)
   const startTime = Date.now()
   
-  const geminiResponse = await fetch(`${apiUrl}?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: optimizedPrompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.5, // Lower for faster, more deterministic responses
-        maxOutputTokens: 3072, // Reduced for faster generation
-        topP: 0.9,
-        topK: 20,
-      }
-    })
-  })
+  // Add aggressive timeout - 30 seconds max for AI generation
+  const controller = new AbortController()
+  let timeoutId: NodeJS.Timeout | null = setTimeout(() => controller.abort(), 30000) // 30 second timeout
   
-  const fetchTime = Date.now() - startTime
-  console.log(`Gemini API request completed in ${fetchTime}ms`)
-
-  console.log("Gemini response status:", geminiResponse.status)
-
-  if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text()
-    console.error("Gemini API error response:", errorText)
-    
-    let errorMessage = `Gemini API error: ${geminiResponse.status}`
-    try {
-      const errorJson = JSON.parse(errorText)
-      errorMessage = errorJson.error?.message || errorJson.message || errorMessage
-    } catch (e) {
-      errorMessage = errorText || errorMessage
-    }
-    
-    throw new Error(errorMessage)
-  }
-
-  const geminiData = await geminiResponse.json()
-  const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
-
-  if (!responseText || responseText.trim().length === 0) {
-    throw new Error("Empty response from Gemini API")
-  }
-
-  console.log("Gemini response received, parsing...")
-
-  // Try to parse JSON from the response
-  let parsedResponse
   try {
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
-                     responseText.match(/\{[\s\S]*\}/)
-    const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText
-    parsedResponse = JSON.parse(jsonString)
-  } catch (parseError) {
-    console.error("Failed to parse JSON response, creating structured response from text")
-    const lines = responseText.split('\n').filter(line => line.trim())
-    parsedResponse = {
-      summary: responseText.substring(0, 500) || "Meeting summary generated from transcript.",
-      keyPoints: lines.slice(0, 5).filter(line => line.trim() && !line.startsWith('#')),
-      actionItems: lines.slice(5, 8).filter(line => line.trim() && !line.startsWith('#')),
-      followUpEmail: {
-        subject: "Follow-up: Meeting Notes",
-        body: responseText.substring(0, 1000) || "Thank you for the meeting. Here are the key points we discussed."
+    const fetchPromise = fetch(`${apiUrl}?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: optimizedPrompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3, // Even lower for fastest responses
+          maxOutputTokens: 2048, // Further reduced for speed
+          topP: 0.8,
+          topK: 15,
+        }
+      }),
+      signal: controller.signal
+    })
+    
+    const geminiResponse = await fetchPromise
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+      timeoutId = null
+    }
+  
+    const fetchTime = Date.now() - startTime
+    console.log(`Gemini API request completed in ${fetchTime}ms`)
+
+    console.log("Gemini response status:", geminiResponse.status)
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text()
+      console.error("Gemini API error response:", errorText)
+      
+      let errorMessage = `Gemini API error: ${geminiResponse.status}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorMessage = errorJson.error?.message || errorJson.message || errorMessage
+      } catch (e) {
+        errorMessage = errorText || errorMessage
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    const geminiData = await geminiResponse.json()
+    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
+
+    if (!responseText || responseText.trim().length === 0) {
+      throw new Error("Empty response from Gemini API")
+    }
+
+    console.log("Gemini response received, parsing...")
+
+    // Try to parse JSON from the response
+    let parsedResponse
+    try {
+      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
+                       responseText.match(/\{[\s\S]*\}/)
+      const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText
+      parsedResponse = JSON.parse(jsonString)
+    } catch (parseError) {
+      console.error("Failed to parse JSON response, creating structured response from text")
+      const lines = responseText.split('\n').filter(line => line.trim())
+      parsedResponse = {
+        summary: responseText.substring(0, 500) || "Meeting summary generated from transcript.",
+        keyPoints: lines.slice(0, 5).filter(line => line.trim() && !line.startsWith('#')),
+        actionItems: lines.slice(5, 8).filter(line => line.trim() && !line.startsWith('#')),
+        followUpEmail: {
+          subject: "Follow-up: Meeting Notes",
+          body: responseText.substring(0, 1000) || "Thank you for the meeting. Here are the key points we discussed."
+        }
       }
     }
-  }
 
-  // Ensure all required fields exist
-  return {
-    summary: parsedResponse.summary || "Meeting summary generated from transcript.",
-    keyPoints: Array.isArray(parsedResponse.keyPoints) 
-      ? parsedResponse.keyPoints 
-      : ["Key points extracted from meeting"],
-    actionItems: Array.isArray(parsedResponse.actionItems) 
-      ? parsedResponse.actionItems 
-      : ["Action items to be determined"],
-    speakers: Array.isArray(parsedResponse.speakers) 
-      ? parsedResponse.speakers 
-      : [],
-    transcriptBySpeaker: Array.isArray(parsedResponse.transcriptBySpeaker) 
-      ? parsedResponse.transcriptBySpeaker 
-      : [],
-    followUpEmail: {
-      subject: parsedResponse.followUpEmail?.subject || "Follow-up: Meeting Notes",
-      body: parsedResponse.followUpEmail?.body || "Thank you for the meeting. Here are the key points we discussed."
-    },
-    transcript: transcript
+    // Ensure all required fields exist
+    return {
+      summary: parsedResponse.summary || "Meeting summary generated from transcript.",
+      keyPoints: Array.isArray(parsedResponse.keyPoints) 
+        ? parsedResponse.keyPoints 
+        : ["Key points extracted from meeting"],
+      actionItems: Array.isArray(parsedResponse.actionItems) 
+        ? parsedResponse.actionItems 
+        : ["Action items to be determined"],
+      speakers: Array.isArray(parsedResponse.speakers) 
+        ? parsedResponse.speakers 
+        : [],
+      transcriptBySpeaker: Array.isArray(parsedResponse.transcriptBySpeaker) 
+        ? parsedResponse.transcriptBySpeaker 
+        : [],
+      followUpEmail: {
+        subject: parsedResponse.followUpEmail?.subject || "Follow-up: Meeting Notes",
+        body: parsedResponse.followUpEmail?.body || "Thank you for the meeting. Here are the key points we discussed."
+      },
+      transcript: transcript
+    }
+  } catch (fetchError: any) {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+    const fetchTime = Date.now() - startTime
+    console.error(`Gemini API fetch failed after ${fetchTime}ms:`, fetchError)
+    
+    if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout')) {
+      throw new Error('AI generation timed out after 30 seconds. Please try again or use a shorter transcript.')
+    }
+    throw fetchError
   }
 }
 
@@ -520,17 +544,35 @@ export async function POST(req: Request) {
         const autoProcess = formData.get('autoProcess') === 'true'
         
         if (autoProcess && transcript.trim()) {
-          // Auto-process with AI immediately
+          // Auto-process with AI immediately with timeout protection
           console.log("Auto-processing transcript with AI...")
           const aiStartTime = Date.now()
+          
+          // Add overall timeout wrapper (35 seconds total)
+          const aiProcessingPromise = processTranscriptWithAI(transcript)
+          const overallTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('AI processing timed out after 35 seconds')), 35000)
+          )
+          
           try {
-            const result = await processTranscriptWithAI(transcript)
+            const result = await Promise.race([aiProcessingPromise, overallTimeoutPromise]) as any
             const aiTime = Date.now() - aiStartTime
             console.log(`AI processing completed in ${aiTime}ms`)
             return NextResponse.json(result)
           } catch (aiError: any) {
             const aiTime = Date.now() - aiStartTime
             console.error(`AI processing failed after ${aiTime}ms:`, aiError)
+            
+            // If timeout, return transcript immediately so user can proceed
+            if (aiError.message && aiError.message.includes('timeout')) {
+              console.log("AI timeout - returning transcript for manual processing")
+              return NextResponse.json({
+                transcript: transcript,
+                message: "File processed successfully. AI generation timed out, but you can click 'Generate AI Meeting Notes' to try again or use the transcript.",
+                error: "AI generation timed out"
+              })
+            }
+            
             // Return transcript even if AI processing fails
             return NextResponse.json({
               transcript: transcript,
