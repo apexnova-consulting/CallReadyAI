@@ -1,24 +1,92 @@
 import 'server-only'
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
+import AdmZip from 'adm-zip'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+// Helper function to extract transcript from ZIP file
+async function extractTranscriptFromZip(file: File): Promise<string> {
+  console.log("Processing ZIP file...")
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+  const zip = new AdmZip(buffer)
+  const zipEntries = zip.getEntries()
+  
+  const transcripts: string[] = []
+  const supportedExtensions = ['.pdf', '.mp3', '.wav', '.m4a', '.mp4', '.mov', '.avi', '.webm', '.txt', '.docx']
+  
+  for (const entry of zipEntries) {
+    if (entry.isDirectory) continue
+    
+    const entryName = entry.entryName.toLowerCase()
+    const extension = entryName.substring(entryName.lastIndexOf('.'))
+    
+    if (!supportedExtensions.includes(extension)) {
+      console.log(`Skipping unsupported file in ZIP: ${entry.entryName}`)
+      continue
+    }
+    
+    try {
+      const fileData = entry.getData()
+      const tempFile = new File([fileData], entry.entryName, { type: entry.entryName.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream' })
+      
+      console.log(`Processing file from ZIP: ${entry.entryName}`)
+      const transcript = await extractTranscriptFromFile(tempFile)
+      if (transcript && transcript.trim()) {
+        transcripts.push(`\n\n--- File: ${entry.entryName} ---\n\n${transcript}`)
+      }
+    } catch (error: any) {
+      console.error(`Error processing ${entry.entryName} from ZIP:`, error.message)
+      // Continue with other files
+    }
+  }
+  
+  if (transcripts.length === 0) {
+    throw new Error("No supported files found in ZIP archive. Please include PDF, audio, video, or text files.")
+  }
+  
+  return transcripts.join('\n\n')
+}
 
 // Helper function to extract transcript from file
 async function extractTranscriptFromFile(file: File): Promise<string> {
   const fileType = file.type || ''
   const fileName = file.name.toLowerCase()
 
+  // Check if it's a ZIP file
+  if (fileType === 'application/zip' || fileType === 'application/x-zip-compressed' || fileName.endsWith('.zip')) {
+    return await extractTranscriptFromZip(file)
+  }
+
   // Check if it's a PDF
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     console.log("Processing PDF file...")
-    // Use dynamic import to avoid webpack bundling issues
-    const pdfParse = (await import('pdf-parse')).default
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const data = await pdfParse(buffer)
-    return data.text
+    try {
+      // Use dynamic import to avoid webpack bundling issues
+      const pdfParse = (await import('pdf-parse')).default
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      
+      // Add timeout for PDF parsing (30 seconds max)
+      const parsePromise = pdfParse(buffer)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('PDF parsing timed out')), 30000)
+      )
+      
+      const data = await Promise.race([parsePromise, timeoutPromise]) as any
+      const text = data.text || ''
+      
+      if (!text || !text.trim()) {
+        throw new Error("PDF appears to be empty or contains no extractable text")
+      }
+      
+      return text
+    } catch (error: any) {
+      console.error("PDF parsing error:", error)
+      throw new Error(`Failed to parse PDF: ${error.message || 'Unknown error'}`)
+    }
   }
 
   // Check if it's audio or video - support all common formats including Zoom
@@ -33,7 +101,7 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
     return await transcribeAudioVideo(file)
   }
 
-  throw new Error("Unsupported file type. Please upload a PDF, audio, or video file.")
+  throw new Error("Unsupported file type. Please upload a PDF, audio, video file, or ZIP archive containing these files.")
 }
 
 // Helper function to transcribe audio/video using Gemini
@@ -357,9 +425,13 @@ export async function POST(req: Request) {
         console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
         
         // Add timeout wrapper for file processing (9 minutes to allow for large files)
+        // Use a more aggressive timeout for PDFs (2 minutes) vs audio/video (9 minutes)
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+        const timeoutDuration = isPdf ? 2 * 60 * 1000 : 9 * 60 * 1000
+        
         const processingPromise = extractTranscriptFromFile(file)
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('File processing timed out. The file may be too large or complex.')), 9 * 60 * 1000)
+          setTimeout(() => reject(new Error('File processing timed out. The file may be too large or complex.')), timeoutDuration)
         )
         
         transcript = await Promise.race([processingPromise, timeoutPromise]) as string
@@ -369,6 +441,12 @@ export async function POST(req: Request) {
         }
         
         console.log("Transcript extracted from file, length:", transcript.length)
+        
+        // Truncate very long transcripts to avoid API limits (keep first 100k characters)
+        if (transcript.length > 100000) {
+          console.warn(`Transcript is very long (${transcript.length} chars), truncating to 100k for AI processing`)
+          transcript = transcript.substring(0, 100000) + "\n\n[Transcript truncated due to length...]"
+        }
         
         // Check if user wants auto-processing (check for autoProcess parameter)
         const autoProcess = formData.get('autoProcess') === 'true'

@@ -464,9 +464,10 @@ Please format your response clearly with sections for Summary, Key Points, Actio
 
   const handleFileUpload = async (file: File) => {
     // Support all common audio/video formats including Zoom recordings
-    const validAudioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.flac', '.aac', '.wma', '.opus']
-    const validVideoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv']
+    const validAudioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.webm', '.flac', '.aac', '.wma', '.opus', '.m4b']
+    const validVideoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv', '.m4v', '.3gp', '.ogv', '.ts', '.mts']
     const validPdfExtensions = ['.pdf']
+    const validZipExtensions = ['.zip']
     
     const fileName = file.name.toLowerCase()
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'))
@@ -475,12 +476,15 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       file.type.startsWith('audio/') ||
       file.type.startsWith('video/') ||
       file.type === 'application/pdf' ||
+      file.type === 'application/zip' ||
+      file.type === 'application/x-zip-compressed' ||
       validAudioExtensions.includes(fileExtension) ||
       validVideoExtensions.includes(fileExtension) ||
-      validPdfExtensions.includes(fileExtension)
+      validPdfExtensions.includes(fileExtension) ||
+      validZipExtensions.includes(fileExtension)
 
     if (!isValidType) {
-      setError(`Unsupported file type. Please upload an audio file (${validAudioExtensions.join(', ')}), video file (${validVideoExtensions.join(', ')}), or PDF document.`)
+      setError(`Unsupported file type. Please upload an audio file, video file, PDF document, or ZIP archive containing multiple files.`)
       return
     }
 
@@ -493,6 +497,7 @@ Please format your response clearly with sections for Summary, Key Points, Actio
 
     setUploadedFile(file)
     setIsUploading(true)
+    setIsProcessing(true) // Start processing state
     setUploadProgress(0)
     setError(null)
     setTranscript('')
@@ -527,6 +532,7 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       clearTimeout(timeoutId)
       clearInterval(progressInterval)
       setUploadProgress(100)
+      setIsUploading(false) // File upload complete, now processing
 
       if (!response.ok) {
         let errorData
@@ -556,13 +562,25 @@ Please format your response clearly with sections for Summary, Key Points, Actio
         if (data.summary) {
           console.log("AI meeting notes generated automatically!")
           setResult(data)
+          setIsProcessing(false)
         } else if (data.message && !data.error) {
-          // Transcript ready, AI processing will happen automatically via API
-          console.log("File processed, waiting for AI analysis...")
+          // Transcript ready, but AI processing might still be happening
+          console.log("File processed, transcript ready")
+          // Don't set isProcessing to false yet - might still be processing
+        } else if (data.error) {
+          // AI processing failed but transcript is available
+          console.warn("AI processing failed but transcript available:", data.error)
+          setError(`Transcript extracted but AI processing failed: ${data.error}. You can still use the transcript.`)
+          setIsProcessing(false)
         }
+      } else if (data.error) {
+        // No transcript and there's an error
+        console.error("File processing error:", data.error)
+        throw new Error(data.error + (data.details ? `: ${data.details}` : ''))
       } else {
         console.warn("No transcript in response:", data)
         setError("File uploaded but no transcript was generated. Please try again or check if the file contains audio/video content.")
+        setIsProcessing(false)
       }
     } catch (error: any) {
       uploadError = error
