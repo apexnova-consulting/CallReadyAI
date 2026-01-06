@@ -1,8 +1,9 @@
+import 'server-only'
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
-import pdfParse from "pdf-parse"
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 // Helper function to extract transcript from file
 async function extractTranscriptFromFile(file: File): Promise<string> {
@@ -12,6 +13,8 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
   // Check if it's a PDF
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     console.log("Processing PDF file...")
+    // Use dynamic import to avoid webpack bundling issues
+    const pdfParse = (await import('pdf-parse')).default
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const data = await pdfParse(buffer)

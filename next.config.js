@@ -19,6 +19,15 @@ const nextConfig = {
         stream: false,
         buffer: false,
       }
+    } else {
+      // Server-side: exclude problematic pdfjs-dist from being bundled
+      config.externals = config.externals || []
+      if (Array.isArray(config.externals)) {
+        config.externals.push({
+          'pdfjs-dist': 'commonjs pdfjs-dist',
+          'pdf-parse': 'commonjs pdf-parse'
+        })
+      }
     }
     return config
   },
