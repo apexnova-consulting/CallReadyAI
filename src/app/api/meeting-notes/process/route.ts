@@ -86,6 +86,13 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       const buffer = Buffer.from(arrayBuffer)
       console.log(`PDF size: ${buffer.length} bytes, attempting pdf-parse...`)
       
+      // Validate PDF magic bytes
+      const pdfHeader = buffer.slice(0, 4).toString()
+      if (pdfHeader !== '%PDF') {
+        throw new Error(`Invalid PDF file: File does not start with PDF magic bytes. Got: ${pdfHeader}`)
+      }
+      console.log("PDF header validated:", pdfHeader)
+      
       // Add timeout for PDF parsing (10 seconds - should be instant for small files)
       const parsePromise = pdfParse(buffer)
       const timeoutPromise = new Promise((_, reject) => 
@@ -103,14 +110,24 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       
       // Extract text from the parsed data
       const text = data.text || ''
+      console.log(`PDF parse result - text length: ${text.length}, type: ${typeof text}, has content: ${!!text.trim()}`)
       
       if (text && typeof text === 'string' && text.trim()) {
         const trimmedText = text.trim()
         console.log(`PDF parsed successfully with pdf-parse, extracted ${trimmedText.length} characters`)
+        console.log(`First 200 chars of extracted text: ${trimmedText.substring(0, 200)}`)
         return trimmedText
       }
       
-      // If no text, try Gemini fallback
+      // If no text, log details and try Gemini fallback
+      console.warn("PDF-parse returned no text. Data structure:", {
+        hasText: !!data.text,
+        textLength: data.text?.length || 0,
+        textType: typeof data.text,
+        dataKeys: Object.keys(data),
+        numPages: data.numpages,
+        info: data.info
+      })
       console.log("PDF-parse returned no text, trying Gemini API fallback...")
       pdfParseError = new Error("PDF-parse returned no extractable text")
       
