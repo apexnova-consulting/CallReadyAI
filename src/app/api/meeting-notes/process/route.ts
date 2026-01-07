@@ -60,133 +60,76 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
     return await extractTranscriptFromZip(file)
   }
 
-  // Check if it's a PDF - Use pdf-parse (reliable for text PDFs) with Gemini fallback
+  // Check if it's a PDF - Use pdf-parse (reliable and fast for text PDFs)
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-    console.log("Processing PDF file...")
+    console.log("Processing PDF file with pdf-parse...")
     
     // Validate file size first
     if (file.size === 0) {
       throw new Error("PDF file is empty")
     }
     
-    // Try pdf-parse first (fast and reliable for text PDFs)
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      throw new Error("PDF file is too large (max 50MB). Please use a smaller file.")
+    }
+    
     try {
       const pdfParse = (await import('pdf-parse')).default
       const arrayBuffer = await file.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
       
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error("PDF file data is empty")
+      }
+      
+      const buffer = Buffer.from(arrayBuffer)
       console.log(`PDF size: ${buffer.length} bytes`)
       
+      // Add timeout for PDF parsing (10 seconds - should be instant for small files)
+      const parsePromise = pdfParse(buffer)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('PDF parsing timed out after 10 seconds')), 10000)
+      )
+      
       const startTime = Date.now()
-      const data = await pdfParse(buffer)
+      const data = await Promise.race([parsePromise, timeoutPromise]) as any
       const parseTime = Date.now() - startTime
       console.log(`PDF parsing completed in ${parseTime}ms`)
       
+      if (!data) {
+        throw new Error("PDF parsing returned no data")
+      }
+      
+      // Extract text from the parsed data
       const text = data.text || ''
       
-      if (text && text.trim()) {
-        console.log(`PDF parsed successfully, extracted ${text.trim().length} characters`)
-        return text.trim()
+      if (!text || typeof text !== 'string') {
+        throw new Error("PDF parsing returned no text content. The PDF may contain only images or be password-protected.")
       }
       
-      // If no text, try Gemini as fallback
-      console.log("PDF-parse returned no text, trying Gemini API fallback...")
-    } catch (parseError: any) {
-      console.warn("PDF-parse failed, trying Gemini API fallback:", parseError.message)
-    }
-    
-    // Fallback: Use Gemini API (for image-based PDFs or when pdf-parse fails)
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) {
-      throw new Error("PDF parsing failed and Gemini API key not configured.")
-    }
-    
-    if (file.size > 20 * 1024 * 1024) { // 20MB limit for Gemini
-      throw new Error("PDF file is too large (max 20MB). Please use a smaller file.")
-    }
-    
-    try {
-      const arrayBuffer = await file.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
-      const base64Data = buffer.toString('base64')
+      const trimmedText = text.trim()
       
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-      
-      // Use gemini-1.5-flash-latest (works in other parts of codebase)
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`
-      const startTime = Date.now()
-      
-      const response = await fetch(`${apiUrl}?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: "Extract all text content from this PDF document. Return only the raw text content, no formatting, no analysis, no explanations. Just the text."
-            }, {
-              inlineData: {
-                mimeType: 'application/pdf',
-                data: base64Data
-              }
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 8192,
-          }
-        }),
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      const fetchTime = Date.now() - startTime
-      console.log(`Gemini API PDF processing completed in ${fetchTime}ms`)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Gemini API error response:", errorText)
-        
-        let errorMessage = `Gemini API error: ${response.status}`
-        try {
-          const errorJson = JSON.parse(errorText)
-          errorMessage = errorJson.error?.message || errorJson.message || errorMessage
-        } catch (e) {
-          errorMessage = errorText || errorMessage
-        }
-        
-        throw new Error(errorMessage)
+      if (!trimmedText) {
+        throw new Error("PDF appears to be empty or contains no extractable text. The PDF may contain only images or be password-protected. Please ensure the PDF has selectable text.")
       }
       
-      const geminiData = await response.json()
-      const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
-      
-      if (!extractedText || !extractedText.trim()) {
-        throw new Error("PDF appears to be empty or contains no extractable text. The PDF may contain only images or be password-protected.")
-      }
-      
-      const trimmedText = extractedText.trim()
-      console.log(`PDF processed successfully via Gemini API, extracted ${trimmedText.length} characters`)
+      console.log(`PDF parsed successfully, extracted ${trimmedText.length} characters`)
       return trimmedText
       
     } catch (error: any) {
-      console.error("PDF processing error:", error)
+      console.error("PDF parsing error:", error)
       const errorMsg = error.message || 'Unknown error'
       
-      if (error.name === 'AbortError' || errorMsg.includes('timeout')) {
-        throw new Error(`PDF processing timed out after 30 seconds. The file may be too large.`)
-      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+      // Provide helpful error messages
+      if (errorMsg.includes('timeout')) {
+        throw new Error(`PDF parsing timed out. The file may be too large or complex. Please try a smaller file.`)
+      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted') || errorMsg.includes('Encrypted')) {
         throw new Error(`PDF is password-protected. Please remove the password and try again.`)
-      } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
-        throw new Error(`AI service quota exceeded. Please try again later.`)
-      } else if (errorMsg.includes('API key') || errorMsg.includes('401') || errorMsg.includes('403')) {
-        throw new Error(`AI service authentication failed. Please contact support.`)
-      } else if (errorMsg.includes('not found') || errorMsg.includes('not supported')) {
-        throw new Error(`PDF processing service unavailable. Please try again later or contact support.`)
+      } else if (errorMsg.includes('corrupt') || errorMsg.includes('invalid') || errorMsg.includes('Invalid')) {
+        throw new Error(`PDF appears to be corrupted or invalid. Please try a different file or recreate the PDF.`)
+      } else if (errorMsg.includes('no text') || errorMsg.includes('empty') || errorMsg.includes('no extractable')) {
+        throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please ensure the PDF has selectable text (not just scanned images).`)
       } else {
-        throw new Error(`Failed to process PDF: ${errorMsg}`)
+        throw new Error(`Failed to parse PDF: ${errorMsg}. Please ensure the PDF contains selectable text and is not corrupted.`)
       }
     }
   }
