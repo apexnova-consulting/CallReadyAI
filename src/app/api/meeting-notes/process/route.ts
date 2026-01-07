@@ -115,6 +115,12 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       pdfParseError = new Error("PDF-parse returned no extractable text")
       
     } catch (error: any) {
+      console.error("PDF-parse error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
+      })
       console.warn("PDF-parse failed, will try Gemini API fallback:", error.message)
       pdfParseError = error
     }
@@ -208,28 +214,35 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       
     } catch (geminiError: any) {
       console.error("Gemini API fallback also failed:", geminiError.message)
+      console.error("Gemini error details:", JSON.stringify(geminiError, null, 2))
+      console.error("Original pdf-parse error:", pdfParseError?.message)
       
-      // Return the most helpful error message
-      const errorMsg = pdfParseError?.message || geminiError.message || 'Unknown error'
+      // Return the most helpful error message with actual details
+      const pdfErrorMsg = pdfParseError?.message || ''
+      const geminiErrorMsg = geminiError.message || ''
+      const combinedError = `${pdfErrorMsg}${pdfErrorMsg && geminiErrorMsg ? ' | ' : ''}${geminiErrorMsg}` || 'Unknown error'
       
-      if (errorMsg.includes('timeout')) {
+      console.error("Combined error message:", combinedError)
+      
+      if (combinedError.includes('timeout')) {
         throw new Error(`PDF processing timed out. The file may be too large or complex. Please try a smaller file.`)
-      } else if (errorMsg.includes('password') || errorMsg.includes('encrypted')) {
+      } else if (combinedError.includes('password') || combinedError.includes('encrypted')) {
         throw new Error(`PDF is password-protected. Please remove the password and try again.`)
-      } else if (errorMsg.includes('quota') || errorMsg.includes('429')) {
+      } else if (combinedError.includes('quota') || combinedError.includes('429')) {
         throw new Error(`AI service quota exceeded. Please try again later.`)
-      } else if (errorMsg.includes('not found') || errorMsg.includes('not supported')) {
-        // If Gemini model doesn't support PDFs, just report the pdf-parse error
-        const parseError = pdfParseError?.message || 'PDF parsing failed'
-        if (parseError.includes('no text') || parseError.includes('empty') || parseError.includes('no extractable')) {
-          throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please ensure the PDF has selectable text (not just scanned images).`)
+      } else if (combinedError.includes('not found') || combinedError.includes('not supported') || combinedError.includes('models/')) {
+        // If Gemini model doesn't support PDFs, provide helpful guidance
+        if (pdfErrorMsg.includes('no text') || pdfErrorMsg.includes('empty') || pdfErrorMsg.includes('no extractable')) {
+          throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please ensure the PDF has selectable text (not just scanned images). If this is a scanned PDF, please use OCR software to convert it to text first.`)
         } else {
-          throw new Error(`PDF parsing failed: ${parseError}. Please ensure the PDF contains selectable text and is not corrupted.`)
+          throw new Error(`PDF parsing failed: ${pdfErrorMsg || 'Unable to extract text from PDF'}. Please ensure the PDF contains selectable text and is not corrupted. If the PDF is valid, please try again or contact support.`)
         }
-      } else if (errorMsg.includes('no text') || errorMsg.includes('empty') || errorMsg.includes('no extractable')) {
-        throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please ensure the PDF has selectable text (not just scanned images).`)
+      } else if (combinedError.includes('no text') || combinedError.includes('empty') || combinedError.includes('no extractable')) {
+        throw new Error(`PDF contains no extractable text. The PDF may contain only images. Please ensure the PDF has selectable text (not just scanned images). If this is a scanned PDF, please use OCR software to convert it to text first.`)
       } else {
-        throw new Error(`PDF parsing failed: ${errorMsg}. Please ensure the PDF contains selectable text and is not corrupted.`)
+        // Include actual error details for debugging
+        const detailedError = pdfErrorMsg || geminiErrorMsg || 'Unknown error'
+        throw new Error(`PDF parsing failed: ${detailedError}. Please ensure the PDF contains selectable text and is not corrupted. If the PDF is valid, please try again or contact support with this error message.`)
       }
     }
   }
@@ -701,7 +714,8 @@ export async function POST(req: Request) {
         } else if (errorDetails.includes('Unsupported file type')) {
           errorMessage = "Unsupported file type. Please upload a PDF, audio file (MP3, WAV, M4A), video file (MP4, MOV), or ZIP archive containing these files."
         } else if (errorDetails.includes('Failed to parse PDF') || errorDetails.includes('PDF parsing')) {
-          errorMessage = "PDF parsing failed. The PDF may be corrupted, password-protected, or contain only images. Please try a different PDF or convert images to text first."
+          // Include the actual error details in the message
+          errorMessage = `PDF parsing failed: ${errorDetails}. The PDF may be corrupted, password-protected, or contain only images. Please ensure the PDF has selectable text (not just scanned images) and try again.`
         } else if (errorDetails.includes('quota') || errorDetails.includes('429')) {
           errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
         } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
