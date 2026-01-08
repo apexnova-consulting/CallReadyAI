@@ -189,8 +189,8 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       throw new Error("PDF processing failed. GEMINI_API_KEY is not configured. Please configure your API key in environment variables.")
     }
     
-    // Gemini quota exceeded - provide helpful message
-    throw new Error("AI service quota exceeded. Your Gemini API quota has been exceeded. Please check your billing at https://ai.google.dev/gemini-api/docs/rate-limits or wait for quota reset. You can also use the 'Open in Gemini' button to process the PDF manually.")
+    // Gemini quota exceeded - provide helpful message with instructions
+    throw new Error("AI service quota exceeded. Your Gemini API quota has been exceeded. Please check your billing and usage at https://ai.google.dev/gemini-api/docs/rate-limits or wait for quota reset. You can also use the 'Open in Gemini' button to process the PDF manually. To fix this, either upgrade your Gemini API plan or wait for your quota to reset.")
   }
 
   // Check if it's audio or video - support all common formats including Zoom
