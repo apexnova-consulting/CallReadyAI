@@ -245,7 +245,7 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
         throw new Error(`PDF processing timed out. The file may be too large or complex. Please try a smaller file.`)
       } else if (combinedError.includes('password') || combinedError.includes('encrypted')) {
         throw new Error(`PDF is password-protected. Please remove the password and try again.`)
-      } else if (combinedError.includes('quota') || combinedError.includes('429')) {
+      } else if ((combinedError.includes('quota') && combinedError.includes('exceeded')) || combinedError.includes('429') || combinedError.includes('RESOURCE_EXHAUSTED')) {
         throw new Error(`AI service quota exceeded. Please try again later.`)
       } else if (combinedError.includes('not found') || combinedError.includes('not supported') || combinedError.includes('models/')) {
         // If Gemini model doesn't support PDFs, provide helpful guidance
@@ -733,7 +733,7 @@ export async function POST(req: Request) {
         } else if (errorDetails.includes('Failed to parse PDF') || errorDetails.includes('PDF parsing')) {
           // Include the actual error details in the message
           errorMessage = `PDF parsing failed: ${errorDetails}. The PDF may be corrupted, password-protected, or contain only images. Please ensure the PDF has selectable text (not just scanned images) and try again.`
-        } else if (errorDetails.includes('quota') || errorDetails.includes('429')) {
+        } else if ((errorDetails.includes('quota') && errorDetails.includes('exceeded')) || errorDetails.includes('429') || errorDetails.includes('RESOURCE_EXHAUSTED')) {
           errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
         } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
           errorMessage = "AI service authentication failed. Please contact support."
@@ -779,7 +779,7 @@ export async function POST(req: Request) {
     
     if (errorDetails.includes("API key") || errorDetails.includes("401") || errorDetails.includes("403")) {
       errorMessage = "AI service authentication failed. Please contact support."
-    } else if (errorDetails.includes("quota") || errorDetails.includes("429")) {
+    } else if ((errorDetails.includes("quota") && errorDetails.includes("exceeded")) || errorDetails.includes("429") || errorDetails.includes("RESOURCE_EXHAUSTED")) {
       errorMessage = "AI service quota exceeded. Please try again later."
     } else if (errorDetails.includes("network") || errorDetails.includes("fetch")) {
       errorMessage = "Network error. Please check your connection and try again."

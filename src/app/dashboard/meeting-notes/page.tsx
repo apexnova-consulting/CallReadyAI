@@ -406,38 +406,45 @@ Please format your response clearly with sections for Summary, Key Points, Actio
         notification.remove()
       }, 3000)
       
-      // Open Google Gemini
-      // Try multiple URL formats to ensure it works
-      const geminiUrl = `https://gemini.google.com/app`
+      // Open Google Gemini with prompt in URL (if supported) or use chat interface
+      // Try using Gemini's chat URL with prompt parameter
+      const encodedPrompt = encodeURIComponent(geminiPrompt.substring(0, 2000)) // Limit length for URL
+      const geminiUrl = `https://gemini.google.com/app?prompt=${encodedPrompt}`
+      
+      // Open Gemini
       const geminiWindow = window.open(geminiUrl, '_blank')
       
-      // If window opened successfully, show instructions
-      if (geminiWindow) {
-        // Wait a moment for Gemini to load, then try to paste
-        setTimeout(() => {
-          // Show instructions since we can't directly paste into another domain
-          const instructions = document.createElement('div')
-          instructions.innerHTML = `
-            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                        background: white; padding: 2rem; border-radius: 0.75rem; 
-                        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); z-index: 10001; max-width: 500px;">
-              <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.25rem; font-weight: 600;">
-                ✅ Transcript Copied!
-              </h3>
-              <p style="margin: 0 0 1rem 0; color: #374151; line-height: 1.6;">
-                The transcript and prompt have been copied to your clipboard. 
-                In the Gemini window that just opened, simply <strong>press Ctrl+V (or Cmd+V on Mac)</strong> to paste.
-              </p>
-              <button onclick="this.parentElement.parentElement.remove()" 
-                      style="padding: 0.75rem 1.5rem; background: #667eea; color: white; 
-                             border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; width: 100%;">
-                Got it!
-              </button>
-            </div>
-          `
-          document.body.appendChild(instructions)
-        }, 1000)
-      }
+      // Show instructions immediately
+      const instructions = document.createElement('div')
+      instructions.innerHTML = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: white; padding: 2rem; border-radius: 0.75rem; 
+                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); z-index: 10001; max-width: 500px;">
+          <h3 style="margin: 0 0 1rem 0; color: #111827; font-size: 1.25rem; font-weight: 600;">
+            ✅ Opening Gemini with Your Transcript
+          </h3>
+          <p style="margin: 0 0 1rem 0; color: #374151; line-height: 1.6;">
+            Your transcript and prompt have been copied to your clipboard. 
+            In the Gemini window, <strong>click in the text box and press Ctrl+V (or Cmd+V on Mac)</strong> to paste.
+          </p>
+          <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.875rem;">
+            The full transcript is ready to paste - just click in Gemini's input box and paste!
+          </p>
+          <button onclick="this.parentElement.parentElement.remove()" 
+                  style="padding: 0.75rem 1.5rem; background: #667eea; color: white; 
+                         border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; width: 100%;">
+            Got it!
+          </button>
+        </div>
+      `
+      document.body.appendChild(instructions)
+      
+      // Auto-remove instructions after 8 seconds
+      setTimeout(() => {
+        if (instructions.parentElement) {
+          instructions.remove()
+        }
+      }, 8000)
     } catch (error: any) {
       console.error('Error copying to clipboard:', error)
       // Fallback: show the prompt in an alert or textarea they can copy
@@ -1255,7 +1262,7 @@ Please help me analyze this meeting and answer any questions I have.`
               }}
               title={(!transcript || !transcript.trim()) ? 'Opens Gemini. Transcript will be available once processing completes.' : 'Open transcript in Google Gemini'}
             >
-              🤖 Open in Gemini {(!transcript || !transcript.trim()) && '(Processing...)'}
+              🤖 Open in Gemini {isUploading || isProcessing ? '(Processing...)' : ''}
             </button>
           </div>
 
