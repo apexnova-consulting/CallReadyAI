@@ -421,8 +421,16 @@ async function transcribeAudioVideo(file: File): Promise<string> {
 async function processTranscriptWithAI(transcript: string) {
   // Check if Gemini API key is available
   if (!process.env.GEMINI_API_KEY) {
+    console.error("GEMINI_API_KEY is not set in environment variables")
     throw new Error("AI service not configured. Please contact support.")
   }
+  
+  if (process.env.GEMINI_API_KEY.trim() === '') {
+    console.error("GEMINI_API_KEY is empty")
+    throw new Error("AI service not configured. Please contact support.")
+  }
+  
+  console.log("GEMINI_API_KEY is present, length:", process.env.GEMINI_API_KEY.length)
 
   // Create comprehensive prompt for meeting notes analysis with speaker identification
   const systemPrompt = `You are CallReady AI, an expert meeting notes analyzer. Analyze the provided meeting transcript and generate:
@@ -745,6 +753,8 @@ export async function POST(req: Request) {
         })
       } catch (error: any) {
         console.error("Error processing file:", error)
+        console.error("Error stack:", error.stack)
+        console.error("Error name:", error.name)
         
         let errorMessage = "Failed to process file"
         let errorDetails = error.message || "Unknown error"
@@ -752,6 +762,7 @@ export async function POST(req: Request) {
         // Provide more helpful error messages
         console.error("File processing error details:", errorDetails)
         
+        // Check for specific error types
         if (errorDetails.includes('timeout') || errorDetails.includes('timed out')) {
           errorMessage = "File processing timed out. The file may be too large. Please try a smaller file (under 50MB recommended) or split it into multiple files."
         } else if (errorDetails.includes('No transcript') || errorDetails.includes('empty') || errorDetails.includes('no extractable')) {
@@ -761,8 +772,9 @@ export async function POST(req: Request) {
         } else if (errorDetails.includes('Failed to parse PDF') || errorDetails.includes('PDF parsing')) {
           // Include the actual error details in the message
           errorMessage = `PDF parsing failed: ${errorDetails}. The PDF may be corrupted, password-protected, or contain only images. Please ensure the PDF has selectable text (not just scanned images) and try again.`
-        } else if (errorDetails.includes('AI service quota exceeded')) {
-          // Only show quota error if it was explicitly identified as quota
+        } else if (errorDetails === 'AI service quota exceeded. Please try again later or use the \'Open in Gemini\' option.' || 
+                   errorDetails === 'AI service quota exceeded. Please try again later.') {
+          // Only show quota error if it was explicitly thrown as quota error
           errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
         } else if (errorDetails.includes('AI service error:')) {
           // Show the actual AI service error
@@ -771,15 +783,18 @@ export async function POST(req: Request) {
           errorMessage = "AI service authentication failed. Please contact support."
         } else if (errorDetails.includes('File is empty')) {
           errorMessage = "The uploaded file is empty. Please upload a valid file with content."
+        } else if (errorDetails.includes('not configured') || errorDetails.includes('GEMINI_API_KEY')) {
+          errorMessage = "AI service is not properly configured. Please contact support."
         } else {
-          // Generic error with more context
-          errorMessage = `Failed to process file: ${errorDetails}. Please check the file format and try again.`
+          // Show the actual error message for better debugging
+          errorMessage = errorDetails
         }
         
         return NextResponse.json(
           { 
             error: errorMessage,
-            details: errorDetails 
+            details: errorDetails,
+            type: error.name || 'Error'
           },
           { status: 500 }
         )
@@ -805,21 +820,30 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Meeting notes processing error:", error)
+    console.error("Error stack:", error.stack)
+    console.error("Error name:", error.name)
     
-    let errorMessage = "Failed to process meeting notes"
-    let errorDetails = error.message || "Unknown error"
+    const errorMessage = error.message || "Internal server error"
+    const errorDetails = {
+      message: errorMessage,
+      name: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }
     
-    if (errorDetails.includes("API key") || errorDetails.includes("401") || errorDetails.includes("403")) {
-      errorMessage = "AI service authentication failed. Please contact support."
-    } else if ((errorDetails.includes("quota") && errorDetails.includes("exceeded")) || errorDetails.includes("429") || errorDetails.includes("RESOURCE_EXHAUSTED")) {
-      errorMessage = "AI service quota exceeded. Please try again later."
-    } else if (errorDetails.includes("network") || errorDetails.includes("fetch")) {
-      errorMessage = "Network error. Please check your connection and try again."
+    // Only show quota error if it was explicitly thrown as quota error
+    let userFacingError = errorMessage
+    if (errorMessage === 'AI service quota exceeded. Please try again later or use the \'Open in Gemini\' option.' ||
+        errorMessage === 'AI service quota exceeded. Please try again later.') {
+      userFacingError = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
+    } else if (errorMessage.includes('not configured') || errorMessage.includes('GEMINI_API_KEY')) {
+      userFacingError = "AI service is not properly configured. Please contact support."
+    } else if (errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      userFacingError = "AI service authentication failed. Please contact support."
     }
     
     return NextResponse.json(
       { 
-        error: errorMessage,
+        error: userFacingError,
         details: errorDetails
       },
       { status: 500 }
