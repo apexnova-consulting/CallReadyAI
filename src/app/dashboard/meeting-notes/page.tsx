@@ -610,12 +610,24 @@ Please format your response clearly with sections for Summary, Key Points, Actio
       uploadError = error
       clearInterval(progressInterval)
       console.error('Error uploading file:', error)
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      })
       
       let errorMessage = 'Failed to process file. Please try again.'
       if (error.name === 'AbortError') {
         errorMessage = 'File processing timed out. The file may be too large. Please try a smaller file or contact support.'
       } else if (error.message) {
-        errorMessage = error.message
+        // Show the actual error message from the server
+        errorMessage = `Error: ${error.message}`
+      }
+      
+      // Don't show generic quota errors - show the actual error
+      if (errorMessage.includes('quota') && !errorMessage.includes('exceeded')) {
+        // If it mentions quota but not explicitly "exceeded", it might be a false positive
+        errorMessage = error.message || 'Failed to process file. Please check the file format and try again.'
       }
       
       setError(errorMessage)
