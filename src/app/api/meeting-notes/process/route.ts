@@ -538,22 +538,50 @@ ${transcriptPreview}`
     const fetchTime = Date.now() - startTime
     console.log(`Gemini API request completed in ${fetchTime}ms`)
 
-    console.log("Gemini response status:", geminiResponse.status)
+      console.log("Gemini response status:", geminiResponse.status)
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text()
-      console.error("Gemini API error response:", errorText)
-      
-      let errorMessage = `Gemini API error: ${geminiResponse.status}`
-      try {
-        const errorJson = JSON.parse(errorText)
-        errorMessage = errorJson.error?.message || errorJson.message || errorMessage
-      } catch (e) {
-        errorMessage = errorText || errorMessage
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text()
+        console.error("Gemini API error response:", errorText)
+        console.error("Gemini API error status:", geminiResponse.status)
+        
+        let errorMessage = `Gemini API error: ${geminiResponse.status}`
+        let errorCode = ''
+        let errorReason = ''
+        
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.error?.message || errorJson.message || errorMessage
+          errorCode = errorJson.error?.code?.toString() || errorJson.error?.status || ''
+          errorReason = errorJson.error?.reason || ''
+          
+          console.error("Parsed error details:", {
+            message: errorMessage,
+            code: errorCode,
+            reason: errorReason,
+            fullError: errorJson
+          })
+        } catch (e) {
+          errorMessage = errorText || errorMessage
+          console.error("Could not parse error JSON:", e)
+        }
+        
+        // Only throw quota error if it's actually a quota issue
+        const isQuotaError = 
+          geminiResponse.status === 429 ||
+          errorCode === '429' ||
+          errorReason === 'RESOURCE_EXHAUSTED' ||
+          (errorMessage.toLowerCase().includes('quota') && errorMessage.toLowerCase().includes('exceeded')) ||
+          errorMessage.includes('RESOURCE_EXHAUSTED')
+        
+        if (isQuotaError) {
+          console.error("Confirmed quota error:", { status: geminiResponse.status, code: errorCode, reason: errorReason, message: errorMessage })
+          throw new Error(`AI service quota exceeded. Please try again later or use the 'Open in Gemini' option.`)
+        }
+        
+        // For other errors, throw with actual details
+        throw new Error(`AI service error: ${errorMessage}`)
       }
-      
-      throw new Error(errorMessage)
-    }
 
     const geminiData = await geminiResponse.json()
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
@@ -733,8 +761,12 @@ export async function POST(req: Request) {
         } else if (errorDetails.includes('Failed to parse PDF') || errorDetails.includes('PDF parsing')) {
           // Include the actual error details in the message
           errorMessage = `PDF parsing failed: ${errorDetails}. The PDF may be corrupted, password-protected, or contain only images. Please ensure the PDF has selectable text (not just scanned images) and try again.`
-        } else if ((errorDetails.includes('quota') && errorDetails.includes('exceeded')) || errorDetails.includes('429') || errorDetails.includes('RESOURCE_EXHAUSTED')) {
+        } else if (errorDetails.includes('AI service quota exceeded')) {
+          // Only show quota error if it was explicitly identified as quota
           errorMessage = "AI service quota exceeded. Please try again later or use the 'Open in Gemini' option."
+        } else if (errorDetails.includes('AI service error:')) {
+          // Show the actual AI service error
+          errorMessage = errorDetails.replace('AI service error: ', '')
         } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
           errorMessage = "AI service authentication failed. Please contact support."
         } else if (errorDetails.includes('File is empty')) {
