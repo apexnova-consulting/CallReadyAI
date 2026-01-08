@@ -755,12 +755,24 @@ export async function POST(req: Request) {
         console.error("Error processing file:", error)
         console.error("Error stack:", error.stack)
         console.error("Error name:", error.name)
+        console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)))
         
         let errorMessage = "Failed to process file"
         let errorDetails = error.message || "Unknown error"
         
         // Provide more helpful error messages
         console.error("File processing error details:", errorDetails)
+        
+        // Check if it's an unexpected error type
+        if (error.name === 'TypeError' || error.name === 'ReferenceError' || error.name === 'SyntaxError') {
+          console.error("Code error detected - this might be a bug:", {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          })
+          errorMessage = `An unexpected error occurred: ${error.message || 'Unknown error'}. Please contact support with this error message.`
+          errorDetails = `${error.name}: ${error.message}`
+        }
         
         // Check for specific error types
         if (errorDetails.includes('timeout') || errorDetails.includes('timed out')) {
