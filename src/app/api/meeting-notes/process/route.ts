@@ -6,59 +6,109 @@ import AdmZip from 'adm-zip'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// Helper function to extract text from PDF using simple text extraction
-// This works for text-based PDFs (not scanned images)
+// Helper function to extract text from PDF using improved text extraction
+// This works for text-based PDFs including Google Docs PDFs
 function extractTextFromPDF(buffer: Buffer): string {
   try {
-    // Simple text extraction: Look for text streams in PDF
-    // This is a basic approach that works for most text-based PDFs
     const pdfContent = buffer.toString('latin1') // Use latin1 to preserve binary data
+    const textMatches: string[] = []
     
-    // Extract text between stream markers (basic PDF text extraction)
-    const streamRegex = /stream[\s\S]*?endstream/g
-    const streams: string[] = []
+    // Method 1: Extract text from PDF text objects (most common)
+    // Pattern: (text) or (text with\escaped characters)
+    const textPattern = /\((.*?)\)/g
     let match
     
-    while ((match = streamRegex.exec(pdfContent)) !== null) {
-      const streamContent = match[0]
-      // Try to extract readable text (filter out binary data)
-      const textMatch = streamContent.match(/[a-zA-Z0-9\s.,;:!?\-'"]{20,}/g)
-      if (textMatch) {
-        streams.push(...textMatch)
+    while ((match = textPattern.exec(pdfContent)) !== null) {
+      let text = match[1]
+      // Decode PDF escape sequences
+      text = text
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\([0-9]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)))
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\\\/g, '\\')
+      
+      // Filter out very short strings, binary data, or non-text
+      if (text.length > 2 && /[a-zA-Z0-9]/.test(text)) {
+        // Allow more characters including Unicode and special chars
+        if (text.length > 1 && !/^[\x00-\x08\x0B-\x0C\x0E-\x1F]*$/.test(text)) {
+          textMatches.push(text)
+        }
       }
     }
     
-    // Also try to extract text from PDF content directly
-    // Look for readable text patterns in PDF text objects
-    const textPattern = /\((.*?)\)/g
-    const textMatches: string[] = []
-    let textMatch
-    
-    while ((textMatch = textPattern.exec(pdfContent)) !== null) {
-      const text = textMatch[1]
-      // Filter out very short or binary-looking strings
-      if (text.length > 3 && /^[a-zA-Z0-9\s.,;:!?\-'"]+$/.test(text)) {
-        textMatches.push(text)
-      }
-    }
-    
-    // Also look for text in TJ and Tj operators (PDF text rendering)
+    // Method 2: Extract text from TJ operator (array of text)
+    // Pattern: [(text1) (text2) ...] TJ
     const tjPattern = /\[(.*?)\]\s*TJ/g
     while ((match = tjPattern.exec(pdfContent)) !== null) {
-      const text = match[1]
-      if (text.length > 3) {
+      const tjContent = match[1]
+      // Extract all text within parentheses in the TJ array
+      const tjTextPattern = /\((.*?)\)/g
+      let tjMatch
+      while ((tjMatch = tjTextPattern.exec(tjContent)) !== null) {
+        let text = tjMatch[1]
+        text = text
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t')
+          .replace(/\\([0-9]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)))
+        
+        if (text.length > 1 && /[a-zA-Z0-9]/.test(text)) {
+          textMatches.push(text)
+        }
+      }
+    }
+    
+    // Method 3: Extract text from Tj operator (single text string)
+    // Pattern: (text) Tj
+    const tjSinglePattern = /\((.*?)\)\s*Tj/g
+    while ((match = tjSinglePattern.exec(pdfContent)) !== null) {
+      let text = match[1]
+      text = text
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\([0-9]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)))
+      
+      if (text.length > 1 && /[a-zA-Z0-9]/.test(text)) {
         textMatches.push(text)
+      }
+    }
+    
+    // Method 4: Extract from stream objects (for compressed PDFs)
+    const streamRegex = /stream[\s\S]*?endstream/g
+    while ((match = streamRegex.exec(pdfContent)) !== null) {
+      const streamContent = match[0]
+      // Look for text patterns within streams
+      const streamTextPattern = /\((.*?)\)/g
+      let streamMatch
+      while ((streamMatch = streamTextPattern.exec(streamContent)) !== null) {
+        let text = streamMatch[1]
+        // Only add if it looks like readable text
+        if (text.length > 5 && /[a-zA-Z]{3,}/.test(text)) {
+          text = text
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
+            .replace(/\\t/g, '\t')
+          textMatches.push(text)
+        }
       }
     }
     
     // Combine all extracted text
-    const allText = [...streams, ...textMatches].join(' ')
+    let allText = textMatches.join(' ')
     
     // Clean up the text
-    return allText
+    allText = allText
       .replace(/\s+/g, ' ') // Normalize whitespace
-      .replace(/[^\x20-\x7E\n]/g, '') // Remove non-printable characters
+      .replace(/\n\s*\n/g, '\n') // Remove multiple newlines
       .trim()
+    
+    console.log(`PDF text extraction: found ${textMatches.length} text segments, total length: ${allText.length} characters`)
+    
+    return allText
       
   } catch (error) {
     console.error("PDF text extraction error:", error)
@@ -255,10 +305,15 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
         // This works for text-based PDFs (not scanned images)
         const pdfText = extractTextFromPDF(buffer)
         
-        if (pdfText && pdfText.trim().length > 100) {
+        // Lower threshold to 50 characters to catch more PDFs
+        // Google Docs PDFs should have plenty of text
+        if (pdfText && pdfText.trim().length > 50) {
           console.log(`Extracted ${pdfText.length} characters from PDF using text extraction`)
           return pdfText.trim()
         } else {
+          // Log what we found for debugging
+          console.warn(`PDF text extraction found only ${pdfText?.length || 0} characters. This might be a scanned PDF or the extraction method needs improvement.`)
+          
           // If text extraction failed, it's likely a scanned/image PDF
           throw new Error("PDF appears to be a scanned document or image-only PDF. OpenAI cannot process image-based PDFs directly. Please use the 'Open in Gemini' button to process this PDF manually, or convert the PDF to text first.")
         }
