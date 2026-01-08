@@ -184,13 +184,31 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
       }
     }
     
-    // If Gemini quota exceeded, provide helpful error message
-    if (!geminiApiKey) {
-      throw new Error("PDF processing failed. GEMINI_API_KEY is not configured. Please configure your API key in environment variables.")
+    // Fallback: Try OpenAI if Gemini quota exceeded or not available
+    const openaiApiKey = process.env.OPENAI_API_KEY
+    if (openaiApiKey) {
+      try {
+        console.log("Attempting OpenAI API for PDF processing...")
+        // Note: OpenAI doesn't support PDFs directly via vision API
+        // We'll use a workaround: convert PDF to text using a simple approach
+        // For now, provide helpful error but suggest using "Open in Gemini"
+        throw new Error('OPENAI_PDF_NOT_SUPPORTED')
+      } catch (openaiError: any) {
+        if (openaiError.message === 'OPENAI_PDF_NOT_SUPPORTED') {
+          // OpenAI doesn't support PDFs directly - provide helpful message
+          throw new Error("PDF processing requires Gemini API. Your Gemini quota has been exceeded. Please use the 'Open in Gemini' button to process the PDF manually, or wait for your quota to reset. To get started with OpenAI for other features, add OPENAI_API_KEY to your environment variables.")
+        }
+        throw openaiError
+      }
     }
     
-    // Gemini quota exceeded - provide helpful message with instructions
-    throw new Error("AI service quota exceeded. Your Gemini API quota has been exceeded. Please check your billing and usage at https://ai.google.dev/gemini-api/docs/rate-limits or wait for quota reset. You can also use the 'Open in Gemini' button to process the PDF manually. To fix this, either upgrade your Gemini API plan or wait for your quota to reset.")
+    // If no API keys configured
+    if (!geminiApiKey && !openaiApiKey) {
+      throw new Error("PDF processing failed. No AI service configured. Please configure GEMINI_API_KEY or OPENAI_API_KEY in environment variables.")
+    }
+    
+    // Gemini quota exceeded and no OpenAI fallback
+    throw new Error("AI service quota exceeded. Your Gemini API quota has been exceeded. Please use the 'Open in Gemini' button to process the PDF manually, or wait for your quota to reset. To add OpenAI as a fallback, configure OPENAI_API_KEY in your environment variables.")
   }
 
   // Check if it's audio or video - support all common formats including Zoom
@@ -346,20 +364,44 @@ async function transcribeAudioVideo(file: File): Promise<string> {
   }
 }
 
-// Helper function to process transcript with AI
+// Helper function to process transcript with AI (with OpenAI fallback)
 async function processTranscriptWithAI(transcript: string) {
-  // Check if Gemini API key is available
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is not set in environment variables")
-    throw new Error("AI service not configured. Please contact support.")
+  const geminiApiKey = process.env.GEMINI_API_KEY
+  const openaiApiKey = process.env.OPENAI_API_KEY
+  
+  // Try Gemini first if available
+  if (geminiApiKey && geminiApiKey.trim() !== '') {
+    try {
+      return await processWithGemini(transcript)
+    } catch (geminiError: any) {
+      // If quota exceeded, try OpenAI fallback
+      const isQuotaError = geminiError.message?.includes('quota') || 
+                          geminiError.message?.includes('429') ||
+                          geminiError.message?.includes('RESOURCE_EXHAUSTED') ||
+                          geminiError.message?.includes('AI service quota exceeded')
+      
+      if (isQuotaError && openaiApiKey) {
+        console.log("Gemini quota exceeded, trying OpenAI fallback...")
+        return await processWithOpenAI(transcript)
+      }
+      
+      // If not quota error or no OpenAI, throw the error
+      throw geminiError
+    }
   }
   
-  if (process.env.GEMINI_API_KEY.trim() === '') {
-    console.error("GEMINI_API_KEY is empty")
-    throw new Error("AI service not configured. Please contact support.")
+  // If no Gemini, try OpenAI
+  if (openaiApiKey) {
+    return await processWithOpenAI(transcript)
   }
   
-  console.log("GEMINI_API_KEY is present, length:", process.env.GEMINI_API_KEY.length)
+  throw new Error("AI service not configured. Please configure GEMINI_API_KEY or OPENAI_API_KEY.")
+}
+
+// Helper function to process with Gemini
+async function processWithGemini(transcript: string) {
+  const geminiApiKey = process.env.GEMINI_API_KEY || ''
+  console.log("GEMINI_API_KEY is present, length:", geminiApiKey.length)
 
   // Create comprehensive prompt for meeting notes analysis with speaker identification
   const systemPrompt = `You are CallReady AI, an expert meeting notes analyzer. Analyze the provided meeting transcript and generate:
@@ -415,7 +457,6 @@ ${transcript}`
 
   // Use faster model for quicker responses
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
-  const apiKey = process.env.GEMINI_API_KEY || ''
   
   console.log("Calling Gemini API for analysis...")
   console.log(`Transcript length: ${transcript.length} characters`)
@@ -445,7 +486,7 @@ ${transcriptPreview}`
   let timeoutId: NodeJS.Timeout | null = setTimeout(() => controller.abort(), 15000) // 15 second timeout
   
   try {
-    const fetchPromise = fetch(`${apiUrl}?key=${apiKey}`, {
+    const fetchPromise = fetch(`${apiUrl}?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -581,7 +622,109 @@ ${transcriptPreview}`
     if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout')) {
       throw new Error('AI generation timed out after 15 seconds. Please try again or use a shorter transcript.')
     }
-    throw fetchError
+    
+    // Re-throw with more context
+    const errorMessage = fetchError.message || 'Unknown error during AI processing'
+    throw new Error(`AI service error: ${errorMessage}`)
+  }
+}
+
+// Helper function to process with OpenAI (fallback)
+async function processWithOpenAI(transcript: string) {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error("OpenAI API key not configured")
+  }
+  
+  console.log("Using OpenAI API for transcript analysis...")
+  console.log(`Transcript length: ${transcript.length} characters`)
+  
+  const OpenAI = (await import('openai')).default
+  const openai = new OpenAI({ apiKey })
+  
+  // Truncate if too long (OpenAI has token limits)
+  const transcriptPreview = transcript.length > 12000 ? transcript.substring(0, 12000) + '\n[Truncated for processing...]' : transcript
+  
+  const systemPrompt = `You are CallReady AI, an expert meeting notes analyzer. Analyze the provided meeting transcript and generate a JSON response with:
+
+1. A comprehensive meeting summary (2-3 paragraphs)
+2. Key discussion points (5-7 bullet points)
+3. Action items with clear ownership and deadlines (3-5 items)
+4. Speaker identification - identify different speakers and organize the transcript by speaker
+5. A professional follow-up email ready to send
+
+Format your response as JSON only:
+{
+  "summary": "Meeting summary text",
+  "keyPoints": ["point 1", "point 2", ...],
+  "actionItems": ["action 1", "action 2", ...],
+  "speakers": [{"id": "s1", "name": "Name", "role": "Role", "quotes": ["quote"]}],
+  "transcriptBySpeaker": [{"speaker": "Name", "text": "text"}],
+  "followUpEmail": {"subject": "Subject", "body": "Body under 200 words"}
+}`
+
+  const startTime = Date.now()
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Using mini for cost efficiency
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Please analyze this meeting transcript:\n\n${transcriptPreview}` }
+      ],
+      temperature: 0.2,
+      max_tokens: 2000,
+      response_format: { type: 'json_object' }
+    })
+    
+    const fetchTime = Date.now() - startTime
+    console.log(`OpenAI API request completed in ${fetchTime}ms`)
+    
+    const responseText = response.choices[0]?.message?.content || ""
+    
+    if (!responseText || responseText.trim().length === 0) {
+      throw new Error("Empty response from OpenAI API")
+    }
+    
+    console.log("OpenAI response received, parsing...")
+    
+    // Parse JSON response
+    let parsedResponse
+    try {
+      parsedResponse = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error("Failed to parse JSON response, creating structured response from text")
+      const lines = responseText.split('\n').filter(line => line.trim())
+      parsedResponse = {
+        summary: responseText.substring(0, 500) || "Meeting summary generated from transcript.",
+        keyPoints: lines.slice(0, 5).filter(line => line.trim() && !line.startsWith('#')),
+        actionItems: lines.slice(5, 8).filter(line => line.trim() && !line.startsWith('#')),
+        speakers: [],
+        transcriptBySpeaker: [],
+        followUpEmail: {
+          subject: "Follow-up: Meeting Notes",
+          body: responseText.substring(0, 1000) || "Thank you for the meeting. Here are the key points we discussed."
+        }
+      }
+    }
+    
+    // Ensure all required fields exist
+    return {
+      summary: parsedResponse.summary || "Meeting summary generated from transcript.",
+      keyPoints: Array.isArray(parsedResponse.keyPoints) ? parsedResponse.keyPoints : [],
+      actionItems: Array.isArray(parsedResponse.actionItems) ? parsedResponse.actionItems : [],
+      speakers: Array.isArray(parsedResponse.speakers) ? parsedResponse.speakers : [],
+      transcriptBySpeaker: Array.isArray(parsedResponse.transcriptBySpeaker) ? parsedResponse.transcriptBySpeaker : [],
+      followUpEmail: parsedResponse.followUpEmail || {
+        subject: "Follow-up: Meeting Notes",
+        body: "Thank you for the meeting. Here are the key points we discussed."
+      },
+      transcript: transcript
+    }
+    
+  } catch (openaiError: any) {
+    console.error("OpenAI API error:", openaiError)
+    throw new Error(`OpenAI API error: ${openaiError.message || 'Unknown error'}`)
   }
 }
 
