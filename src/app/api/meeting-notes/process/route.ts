@@ -6,6 +6,66 @@ import AdmZip from 'adm-zip'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// Helper function to extract text from PDF using simple text extraction
+// This works for text-based PDFs (not scanned images)
+function extractTextFromPDF(buffer: Buffer): string {
+  try {
+    // Simple text extraction: Look for text streams in PDF
+    // This is a basic approach that works for most text-based PDFs
+    const pdfContent = buffer.toString('latin1') // Use latin1 to preserve binary data
+    
+    // Extract text between stream markers (basic PDF text extraction)
+    const streamRegex = /stream[\s\S]*?endstream/g
+    const streams: string[] = []
+    let match
+    
+    while ((match = streamRegex.exec(pdfContent)) !== null) {
+      const streamContent = match[0]
+      // Try to extract readable text (filter out binary data)
+      const textMatch = streamContent.match(/[a-zA-Z0-9\s.,;:!?\-'"]{20,}/g)
+      if (textMatch) {
+        streams.push(...textMatch)
+      }
+    }
+    
+    // Also try to extract text from PDF content directly
+    // Look for readable text patterns in PDF text objects
+    const textPattern = /\((.*?)\)/g
+    const textMatches: string[] = []
+    let textMatch
+    
+    while ((textMatch = textPattern.exec(pdfContent)) !== null) {
+      const text = textMatch[1]
+      // Filter out very short or binary-looking strings
+      if (text.length > 3 && /^[a-zA-Z0-9\s.,;:!?\-'"]+$/.test(text)) {
+        textMatches.push(text)
+      }
+    }
+    
+    // Also look for text in TJ and Tj operators (PDF text rendering)
+    const tjPattern = /\[(.*?)\]\s*TJ/g
+    while ((match = tjPattern.exec(pdfContent)) !== null) {
+      const text = match[1]
+      if (text.length > 3) {
+        textMatches.push(text)
+      }
+    }
+    
+    // Combine all extracted text
+    const allText = [...streams, ...textMatches].join(' ')
+    
+    // Clean up the text
+    return allText
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/[^\x20-\x7E\n]/g, '') // Remove non-printable characters
+      .trim()
+      
+  } catch (error) {
+    console.error("PDF text extraction error:", error)
+    return ''
+  }
+}
+
 // Helper function to extract transcript from ZIP file
 async function extractTranscriptFromZip(file: File): Promise<string> {
   console.log("Processing ZIP file...")
@@ -188,17 +248,28 @@ async function extractTranscriptFromFile(file: File): Promise<string> {
     const openaiApiKey = process.env.OPENAI_API_KEY
     if (openaiApiKey) {
       try {
-        console.log("Attempting OpenAI API for PDF processing...")
-        // Note: OpenAI doesn't support PDFs directly via vision API
-        // We'll use a workaround: convert PDF to text using a simple approach
-        // For now, provide helpful error but suggest using "Open in Gemini"
-        throw new Error('OPENAI_PDF_NOT_SUPPORTED')
-      } catch (openaiError: any) {
-        if (openaiError.message === 'OPENAI_PDF_NOT_SUPPORTED') {
-          // OpenAI doesn't support PDFs directly - provide helpful message
-          throw new Error("PDF processing requires Gemini API. Your Gemini quota has been exceeded. Please use the 'Open in Gemini' button to process the PDF manually, or wait for your quota to reset. To get started with OpenAI for other features, add OPENAI_API_KEY to your environment variables.")
+        console.log("Attempting OpenAI fallback for PDF processing...")
+        
+        // OpenAI doesn't support PDFs directly in chat completions
+        // But we can use a workaround: extract text using a simple regex-based approach
+        // This works for text-based PDFs (not scanned images)
+        const pdfText = extractTextFromPDF(buffer)
+        
+        if (pdfText && pdfText.trim().length > 100) {
+          console.log(`Extracted ${pdfText.length} characters from PDF using text extraction`)
+          return pdfText.trim()
+        } else {
+          // If text extraction failed, it's likely a scanned/image PDF
+          throw new Error("PDF appears to be a scanned document or image-only PDF. OpenAI cannot process image-based PDFs directly. Please use the 'Open in Gemini' button to process this PDF manually, or convert the PDF to text first.")
         }
-        throw openaiError
+      } catch (openaiError: any) {
+        // If it's our custom error, re-throw it
+        if (openaiError.message?.includes('scanned') || openaiError.message?.includes('image-only')) {
+          throw openaiError
+        }
+        // For other errors, provide helpful message
+        console.error("OpenAI PDF processing error:", openaiError)
+        throw new Error(`PDF processing failed: ${openaiError.message || 'Unknown error'}. OpenAI cannot process PDFs directly. Please use the 'Open in Gemini' button or convert the PDF to text first.`)
       }
     }
     
@@ -403,8 +474,8 @@ async function processWithGemini(transcript: string) {
   const geminiApiKey = process.env.GEMINI_API_KEY || ''
   console.log("GEMINI_API_KEY is present, length:", geminiApiKey.length)
 
-  // Create comprehensive prompt for meeting notes analysis with speaker identification
-  const systemPrompt = `You are CallReady AI, an expert meeting notes analyzer. Analyze the provided meeting transcript and generate:
+    // Create comprehensive prompt for meeting notes analysis with speaker identification
+    const systemPrompt = `You are CallReady AI, an expert meeting notes analyzer. Analyze the provided meeting transcript and generate:
 
 1. A comprehensive meeting summary (2-3 paragraphs)
 2. Key discussion points (5-7 bullet points)
@@ -450,7 +521,7 @@ Format your response as JSON with the following structure:
   }
 }`
 
-  const userPrompt = `Please analyze this meeting transcript and provide the requested information:
+    const userPrompt = `Please analyze this meeting transcript and provide the requested information:
 
 MEETING TRANSCRIPT:
 ${transcript}`
@@ -487,17 +558,17 @@ ${transcriptPreview}`
   
   try {
     const fetchPromise = fetch(`${apiUrl}?key=${geminiApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
             text: optimizedPrompt
-          }]
-        }],
-        generationConfig: {
+            }]
+          }],
+          generationConfig: {
           temperature: 0.2, // Very low for fastest, most deterministic responses
           maxOutputTokens: 1536, // Further reduced for maximum speed
           topP: 0.7,
@@ -561,55 +632,55 @@ ${transcriptPreview}`
         throw new Error(`AI service error: ${errorMessage}`)
       }
 
-    const geminiData = await geminiResponse.json()
-    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
+      const geminiData = await geminiResponse.json()
+      const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
-    if (!responseText || responseText.trim().length === 0) {
-      throw new Error("Empty response from Gemini API")
-    }
+      if (!responseText || responseText.trim().length === 0) {
+        throw new Error("Empty response from Gemini API")
+      }
 
-    console.log("Gemini response received, parsing...")
+      console.log("Gemini response received, parsing...")
 
-    // Try to parse JSON from the response
-    let parsedResponse
-    try {
-      const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
-                       responseText.match(/\{[\s\S]*\}/)
-      const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText
-      parsedResponse = JSON.parse(jsonString)
-    } catch (parseError) {
-      console.error("Failed to parse JSON response, creating structured response from text")
-      const lines = responseText.split('\n').filter(line => line.trim())
-      parsedResponse = {
-        summary: responseText.substring(0, 500) || "Meeting summary generated from transcript.",
-        keyPoints: lines.slice(0, 5).filter(line => line.trim() && !line.startsWith('#')),
-        actionItems: lines.slice(5, 8).filter(line => line.trim() && !line.startsWith('#')),
-        followUpEmail: {
-          subject: "Follow-up: Meeting Notes",
-          body: responseText.substring(0, 1000) || "Thank you for the meeting. Here are the key points we discussed."
+      // Try to parse JSON from the response
+      let parsedResponse
+      try {
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
+                         responseText.match(/\{[\s\S]*\}/)
+        const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText
+        parsedResponse = JSON.parse(jsonString)
+      } catch (parseError) {
+        console.error("Failed to parse JSON response, creating structured response from text")
+        const lines = responseText.split('\n').filter(line => line.trim())
+        parsedResponse = {
+          summary: responseText.substring(0, 500) || "Meeting summary generated from transcript.",
+          keyPoints: lines.slice(0, 5).filter(line => line.trim() && !line.startsWith('#')),
+          actionItems: lines.slice(5, 8).filter(line => line.trim() && !line.startsWith('#')),
+          followUpEmail: {
+            subject: "Follow-up: Meeting Notes",
+            body: responseText.substring(0, 1000) || "Thank you for the meeting. Here are the key points we discussed."
+          }
         }
       }
-    }
 
-    // Ensure all required fields exist
+      // Ensure all required fields exist
     return {
-      summary: parsedResponse.summary || "Meeting summary generated from transcript.",
-      keyPoints: Array.isArray(parsedResponse.keyPoints) 
-        ? parsedResponse.keyPoints 
-        : ["Key points extracted from meeting"],
-      actionItems: Array.isArray(parsedResponse.actionItems) 
-        ? parsedResponse.actionItems 
-        : ["Action items to be determined"],
-      speakers: Array.isArray(parsedResponse.speakers) 
-        ? parsedResponse.speakers 
-        : [],
-      transcriptBySpeaker: Array.isArray(parsedResponse.transcriptBySpeaker) 
-        ? parsedResponse.transcriptBySpeaker 
-        : [],
-      followUpEmail: {
-        subject: parsedResponse.followUpEmail?.subject || "Follow-up: Meeting Notes",
-        body: parsedResponse.followUpEmail?.body || "Thank you for the meeting. Here are the key points we discussed."
-      },
+        summary: parsedResponse.summary || "Meeting summary generated from transcript.",
+        keyPoints: Array.isArray(parsedResponse.keyPoints) 
+          ? parsedResponse.keyPoints 
+          : ["Key points extracted from meeting"],
+        actionItems: Array.isArray(parsedResponse.actionItems) 
+          ? parsedResponse.actionItems 
+          : ["Action items to be determined"],
+        speakers: Array.isArray(parsedResponse.speakers) 
+          ? parsedResponse.speakers 
+          : [],
+        transcriptBySpeaker: Array.isArray(parsedResponse.transcriptBySpeaker) 
+          ? parsedResponse.transcriptBySpeaker 
+          : [],
+        followUpEmail: {
+          subject: parsedResponse.followUpEmail?.subject || "Follow-up: Meeting Notes",
+          body: parsedResponse.followUpEmail?.body || "Thank you for the meeting. Here are the key points we discussed."
+        },
       transcript: transcript
     }
   } catch (fetchError: any) {
@@ -864,7 +935,7 @@ export async function POST(req: Request) {
           // Show the actual AI service error
           errorMessage = errorDetails.replace('AI service error: ', '')
         } else if (errorDetails.includes('API key') || errorDetails.includes('401') || errorDetails.includes('403')) {
-          errorMessage = "AI service authentication failed. Please contact support."
+        errorMessage = "AI service authentication failed. Please contact support."
         } else if (errorDetails.includes('File is empty')) {
           errorMessage = "The uploaded file is empty. Please upload a valid file with content."
         } else if (errorDetails.includes('not configured') || errorDetails.includes('GEMINI_API_KEY')) {
@@ -872,17 +943,17 @@ export async function POST(req: Request) {
         } else {
           // Show the actual error message for better debugging
           errorMessage = errorDetails
-        }
-        
-        return NextResponse.json(
-          { 
-            error: errorMessage,
+      }
+      
+      return NextResponse.json(
+        { 
+          error: errorMessage,
             details: errorDetails,
             type: error.name || 'Error'
-          },
-          { status: 500 }
-        )
-      }
+        },
+        { status: 500 }
+      )
+    }
     } else {
       // Handle text transcript (existing flow)
       const body = await req.json()
